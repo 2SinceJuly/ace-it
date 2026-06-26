@@ -1,0 +1,47 @@
+# Ace It Docker Compose configuration
+# 包含 PostgreSQL 数据库和 Next.js 应用
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: ace-it-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tideai
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: tideai
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tideai']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js 应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ace-it-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://tideai:password123@postgres:5432/tideai"
+      NODE_ENV: production
+    env_file:
+      - .env
+      - .env.production
+    volumes:
+      - ./generated:/app/public/generated
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
