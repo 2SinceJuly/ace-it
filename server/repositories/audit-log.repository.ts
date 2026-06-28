@@ -15,6 +15,7 @@ export type AuditAction =
   | 'interview.view'
   | 'interview.start'
   | 'interview.answer'
+  | 'interview.complete'
   | 'auth.login'
   | 'auth.logout'
   | 'auth.link_account'

@@ -19,16 +19,34 @@ interface SiliconFlowStreamChunk {
 
 export function createInterviewSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  context: InterviewStreamContext
+  context: InterviewStreamContext,
+  options?: { abortSignal?: AbortSignal }
 ): ReadableStream {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
+  const abortSignal = options?.abortSignal
 
   return new ReadableStream({
     async start(controller) {
       const writer = new SSEWriter(controller, encoder, context.sessionId)
       let buffer = ''
       let answerContent = ''
+
+      // 当客户端断开连接时取消上游 reader 并关闭 SSE 流
+      const onAbort = () => {
+        reader.cancel().catch(() => {
+          /* reader 已经关闭，忽略 */
+        })
+        writer.close()
+      }
+
+      if (abortSignal) {
+        if (abortSignal.aborted) {
+          onAbort()
+          return
+        }
+        abortSignal.addEventListener('abort', onAbort, { once: true })
+      }
 
       try {
         while (true) {
@@ -77,7 +95,16 @@ export function createInterviewSSEStream(
           }
         }
       } catch (error) {
+        // 客户端主动断开（AbortError）时不上报错误，直接关闭
+        if (error instanceof Error && error.name === 'AbortError') {
+          writer.close()
+          return
+        }
         writer.error(error)
+      } finally {
+        if (abortSignal) {
+          abortSignal.removeEventListener('abort', onAbort)
+        }
       }
     },
   })

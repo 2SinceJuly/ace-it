@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import { AlertCircle, ArrowLeft, Bot, FileText, Loader2, Send, User } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { AlertCircle, ArrowLeft, Bot, FileText, Flag, Loader2, Send, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +18,12 @@ const difficultyLabels: Record<string, string> = {
   easy: 'Easy',
   medium: 'Medium',
   hard: 'Hard',
+}
+
+const statusLabels: Record<string, string> = {
+  draft: '未开始',
+  in_progress: '进行中',
+  completed: '已完成',
 }
 
 function summarizeMaterial(content: string) {
@@ -35,11 +42,15 @@ function formatMessageTime(value: string) {
 }
 
 export function InterviewRoom({ interviewId }: InterviewRoomProps) {
+  const router = useRouter()
   const interview = useInterviewStore((state) => state.currentInterview)
   const isLoading = useInterviewStore((state) => state.currentInterviewLoading)
   const loadInterview = useInterviewStore((state) => state.loadInterview)
   const startInterviewStream = useInterviewStore((state) => state.startInterviewStream)
   const submitInterviewAnswerStream = useInterviewStore((state) => state.submitInterviewAnswerStream)
+  const abortStream = useInterviewStore((state) => state.abortStream)
+  const completeInterview = useInterviewStore((state) => state.completeInterview)
+  const isCompleting = useInterviewStore((state) => state.isCompleting)
   const streamingMessageId = useInterviewStore((state) => state.streamingMessageId)
   const streamingPhase = useInterviewStore((state) => state.streamingPhase)
   const [answer, setAnswer] = useState('')
@@ -49,7 +60,11 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
   useEffect(() => {
     loadInterview(interviewId)
-  }, [interviewId, loadInterview])
+    // 离开页面时中止正在进行的流式请求，避免内存泄漏和服务端继续消耗配额
+    return () => {
+      abortStream()
+    }
+  }, [interviewId, loadInterview, abortStream])
 
   const handleStartInterview = async () => {
     if (isStarting) return
@@ -84,6 +99,19 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
     }
   }
 
+  const handleCompleteInterview = async () => {
+    if (isCompleting) return
+    setError(null)
+
+    const completed = await completeInterview(interviewId)
+    if (completed) {
+      // 跳转到面试报告页查看本次表现
+      router.push(`/interviews/report/${interviewId}`)
+    } else {
+      setError('结束面试失败，请重试。')
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[560px] items-center justify-center text-[#667085]">
@@ -102,7 +130,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
             <CardDescription>这场面试可能已被删除，或当前账号无法访问。</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => window.location.href = '/interviews'}>
+            <Button onClick={() => router.push('/interviews')}>
               返回模拟面试
             </Button>
           </CardContent>
@@ -113,12 +141,14 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
   const material = interview.materials[0]?.content || ''
   const hasMessages = interview.messages.length > 0
-  const isBusy = isStarting || isSubmitting
+  const isBusy = isStarting || isSubmitting || isCompleting
+  const isCompleted = interview.status === 'completed'
+  const isStreaming = streamingMessageId !== null
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 rounded-[28px] border border-[#e5e9f2] bg-white p-5 shadow-[0_20px_70px_rgba(16,24,40,0.06)] md:p-6">
-        <Button variant="ghost" className="w-fit rounded-2xl text-[#667085]" onClick={() => window.location.href = '/interviews'}>
+        <Button variant="ghost" className="w-fit rounded-2xl text-[#667085]" onClick={() => router.push('/interviews')}>
           <ArrowLeft className="h-4 w-4" />
           返回
         </Button>
@@ -130,19 +160,51 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
               <Badge className="rounded-full bg-[#eef3ff] text-[#3f66e8] hover:bg-[#eef3ff]">
                 {difficultyLabels[interview.difficulty] || interview.difficulty}
               </Badge>
-              <Badge className="rounded-full bg-[#f8fafc] text-[#667085] hover:bg-[#f8fafc]">
-                {interview.status}
+              <Badge
+                className={cn(
+                  'rounded-full hover:bg-opacity-100',
+                  isCompleted
+                    ? 'bg-[#ecfdf3] text-[#027a48] hover:bg-[#ecfdf3]'
+                    : 'bg-[#f8fafc] text-[#667085] hover:bg-[#f8fafc]'
+                )}
+              >
+                {statusLabels[interview.status] || interview.status}
               </Badge>
             </div>
           </div>
-          <Button
-            onClick={handleStartInterview}
-            disabled={isBusy || hasMessages}
-            className="h-12 rounded-2xl bg-[#f27d6a] px-6 hover:bg-[#df6e5d]"
-          >
-            {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
-            Start AI interview
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={handleStartInterview}
+              disabled={isBusy || hasMessages || isCompleted}
+              className="h-12 rounded-2xl bg-[#f27d6a] px-6 hover:bg-[#df6e5d]"
+            >
+              {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Start AI interview
+            </Button>
+            {hasMessages && !isCompleted && (
+              <Button
+                onClick={handleCompleteInterview}
+                disabled={isBusy || isStreaming}
+                variant="outline"
+                className="h-12 rounded-2xl border-[#f27d6a] px-6 text-[#f27d6a] hover:bg-[#fff0ed] hover:text-[#df6e5d]"
+              >
+                {isCompleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Flag className="h-4 w-4" />
+                )}
+                结束面试
+              </Button>
+            )}
+            {isCompleted && (
+              <Button
+                onClick={() => router.push(`/interviews/report/${interviewId}`)}
+                className="h-12 rounded-2xl bg-[#101828] px-6 hover:bg-[#1d2939]"
+              >
+                查看报告
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -226,7 +288,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                 </div>
               )}
 
-              {hasMessages && (
+              {hasMessages && !isCompleted && (
                 <form className="space-y-3 border-t pt-4" onSubmit={handleSubmitAnswer}>
                   <textarea
                     value={answer}
@@ -254,6 +316,12 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                     </Button>
                   </div>
                 </form>
+              )}
+
+              {isCompleted && (
+                <div className="rounded-[22px] border border-[#d7dde8] bg-[#fbfcff] px-4 py-3 text-sm text-[#667085]">
+                  本场面试已结束，点击上方&ldquo;查看报告&rdquo;查看完整表现评估。
+                </div>
               )}
             </CardContent>
           </Card>

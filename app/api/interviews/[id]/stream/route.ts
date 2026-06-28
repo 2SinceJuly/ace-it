@@ -44,10 +44,16 @@ export async function POST(req: Request, context: RouteContext) {
   }
 
   try {
-    const { stream, sessionId, interviewId } = await handleInterviewStreamRequest(userId, apiKey, id, {
-      action: body.action,
-      content: body.content,
-    })
+    const { stream, sessionId, interviewId } = await handleInterviewStreamRequest(
+      userId,
+      apiKey,
+      id,
+      {
+        action: body.action,
+        content: body.content,
+      },
+      { abortSignal: req.signal }
+    )
 
     return new Response(stream, {
       headers: {

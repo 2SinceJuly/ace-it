@@ -29,7 +29,8 @@ export async function handleInterviewStreamRequest(
   userId: string,
   apiKey: string,
   interviewId: string,
-  request: InterviewStreamRequest
+  request: InterviewStreamRequest,
+  options?: { abortSignal?: AbortSignal }
 ): Promise<InterviewStreamResponse> {
   const interview = await InterviewRepository.findById(interviewId, userId)
 
@@ -46,7 +47,7 @@ export async function handleInterviewStreamRequest(
     const sessionId = Date.now().toString()
 
     return {
-      stream: createInterviewSSEStream(reader, { interviewId, userId, sessionId }),
+      stream: createInterviewSSEStream(reader, { interviewId, userId, sessionId }, options),
       sessionId,
       interviewId,
     }
@@ -63,7 +64,7 @@ export async function handleInterviewStreamRequest(
     const sessionId = Date.now().toString()
 
     return {
-      stream: createInterviewSSEStream(reader, { interviewId, userId, sessionId }),
+      stream: createInterviewSSEStream(reader, { interviewId, userId, sessionId }, options),
       sessionId,
       interviewId,
     }

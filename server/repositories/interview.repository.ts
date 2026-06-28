@@ -111,4 +111,12 @@ export const InterviewRepository = {
       })
     })
   },
+
+  async markCompleted(id: string, _userId: string) {
+    return prisma.interviewSession.update({
+      where: { id },
+      data: { status: 'completed' },
+      include: interviewInclude,
+    })
+  },
 }

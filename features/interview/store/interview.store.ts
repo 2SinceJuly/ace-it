@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import {
+  completeInterview as completeInterviewAction,
   createInterview as createInterviewAction,
   getInterviewById,
   getInterviews,
@@ -23,6 +24,7 @@ interface InterviewState {
   streamingMessageId: string | null
   streamingPhase: 'idle' | 'thinking' | 'answering'
   abortController: AbortController | null
+  isCompleting: boolean
   loadInterviews: () => Promise<void>
   loadInterview: (id: string) => Promise<InterviewData | null>
   createInterview: (input: CreateInterviewData) => Promise<string>
@@ -31,6 +33,7 @@ interface InterviewState {
   startInterviewStream: (id: string) => Promise<void>
   submitInterviewAnswerStream: (id: string, content: string) => Promise<void>
   abortStream: () => void
+  completeInterview: (id: string) => Promise<InterviewData | null>
   reset: () => void
 }
 
@@ -43,6 +46,7 @@ const initialState = {
   streamingMessageId: null,
   streamingPhase: 'idle' as const,
   abortController: null,
+  isCompleting: false,
 }
 
 function mergeInterview(interviews: InterviewData[], updatedInterview: InterviewData) {
@@ -326,6 +330,36 @@ export const useInterviewStore = create<InterviewState>((set) => ({
     const controller = useInterviewStore.getState().abortController
     controller?.abort()
     set({ streamingMessageId: null, streamingPhase: 'idle', abortController: null })
+  },
+
+  completeInterview: async (id) => {
+    set({ isCompleting: true })
+    try {
+      // 先中止任何正在进行的流式输出，避免冲突
+      const controller = useInterviewStore.getState().abortController
+      controller?.abort()
+
+      const result = await completeInterviewAction(id)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to complete interview.')
+      }
+
+      set((state) => ({
+        currentInterview: result.data!,
+        interviews: mergeInterview(state.interviews, result.data!),
+        streamingMessageId: null,
+        streamingPhase: 'idle',
+        abortController: null,
+      }))
+
+      return result.data
+    } catch (error) {
+      console.error('[InterviewStore] completeInterview failed:', error)
+      set({ isCompleting: false })
+      return null
+    } finally {
+      set({ isCompleting: false })
+    }
   },
 
   reset: () => set(initialState),

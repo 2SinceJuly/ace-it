@@ -252,3 +252,33 @@ export async function submitInterviewAnswer(
     return { success: false, error: serializeActionError(error, 'Failed to submit answer.') }
   }
 }
+
+export async function completeInterview(
+  interviewId: string
+): Promise<ActionResult<InterviewData>> {
+  try {
+    const userId = await getCurrentUserId()
+    const interview = await InterviewRepository.findById(interviewId, userId)
+
+    if (!interview) {
+      return { success: false, error: 'Interview not found.' }
+    }
+
+    if (interview.status === 'completed') {
+      return { success: true, data: serializeInterview(interview) }
+    }
+
+    const updatedInterview = await InterviewRepository.markCompleted(interview.id, userId)
+
+    await audit({
+      userId,
+      action: 'interview.complete',
+      resourceId: interview.id,
+    })
+
+    return { success: true, data: serializeInterview(updatedInterview) }
+  } catch (error) {
+    console.error('[Action] completeInterview failed:', error)
+    return { success: false, error: serializeActionError(error, 'Failed to complete interview.') }
+  }
+}
