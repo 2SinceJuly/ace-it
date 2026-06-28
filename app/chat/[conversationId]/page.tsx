@@ -10,7 +10,9 @@
  */
 
 import { memo, useEffect } from 'react'
+import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { UserRoundSearch } from 'lucide-react'
 import { ChatService } from '@/features/chat/services/chat.service'
 import { Sidebar } from '@/components/Sidebar'
 import { Header } from '@/components/Header'
@@ -21,13 +23,24 @@ import { NewChatButton } from '@/features/conversation/components/NewChatButton'
 import { ConversationSearch } from '@/features/conversation/components/ConversationSearch'
 import { MainLayout } from '@/components/MainLayout'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
+import { Button } from '@/components/ui/button'
 
 const ChatSidebar = memo(() => (
   <Sidebar>
-    <div className="space-y-2">
-      <NewChatButton />
-      <ConversationSearch />
-      <ConversationList />
+    <div className="space-y-4">
+      <Button asChild className="w-full justify-start gap-3">
+        <Link href="/interviews/new">
+          <UserRoundSearch className="h-4 w-4" />
+          新建模拟面试
+        </Link>
+      </Button>
+
+      <div className="space-y-2 border-t pt-3">
+        <div className="px-3 text-xs font-medium text-muted-foreground">通用聊天</div>
+        <NewChatButton />
+        <ConversationSearch />
+        <ConversationList />
+      </div>
     </div>
   </Sidebar>
 ))

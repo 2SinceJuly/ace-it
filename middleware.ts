@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname === '/' && isLoggedIn) {
-    return NextResponse.redirect(new URL('/chat', request.url))
+    return NextResponse.redirect(new URL('/interviews', request.url))
   }
 
   if (pathname.startsWith('/chat') && !isLoggedIn) {

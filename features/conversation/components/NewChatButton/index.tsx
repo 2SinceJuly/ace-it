@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * New Chat Button Component - 新建对话按钮组件
+ * New Chat Button Component - 新建通用聊天按钮组件
  * 
  * 点击时创建新会话并导航到 /chat/{newId}
  * 
@@ -41,7 +41,7 @@ export function NewChatButton() {
       className="w-full justify-start gap-3 hover:bg-[hsl(var(--sidebar-hover))] dark:hover:bg-[hsl(var(--sidebar-hover))]"
     >
       <PenSquare className="h-4 w-4" />
-      <span>{isCreating ? '创建中...' : '新建对话'}</span>
+      <span>{isCreating ? '创建中...' : '新建通用聊天'}</span>
     </Button>
   )
 }

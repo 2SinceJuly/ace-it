@@ -35,7 +35,7 @@ export function ConversationSearch() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="搜索对话..."
+          placeholder="搜索通用聊天..."
           className="w-full h-9 pl-9 pr-9 rounded-lg border border-border bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
         />
         {searchQuery && (
@@ -52,10 +52,9 @@ export function ConversationSearch() {
       
       {searchQuery && (
         <p className="text-xs text-muted-foreground mt-2 px-1">
-          找到 {filteredConversations.length} 个对话
+          找到 {filteredConversations.length} 个通用聊天
         </p>
       )}
     </div>
   )
 }
-

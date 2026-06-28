@@ -149,7 +149,7 @@ export function ConversationListUI({
       <div className="flex items-center justify-between px-3 py-2 mb-2">
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">历史会话</span>
+          <span className="text-sm font-medium text-muted-foreground">通用聊天记录</span>
         </div>
         
         {selectedIds.size > 0 && (
@@ -181,7 +181,7 @@ export function ConversationListUI({
       ) : conversations.length === 0 ? (
         <div className="py-4">
           <p className="text-xs text-muted-foreground px-3">
-            暂无历史对话
+            暂无通用聊天记录
           </p>
         </div>
       ) : (
@@ -206,10 +206,10 @@ export function ConversationListUI({
         <AlertDialogContent className="bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-gray-900 dark:text-gray-100">
-              删除{deleteCount > 1 ? ` ${deleteCount} 个` : ''}对话？
+              删除{deleteCount > 1 ? ` ${deleteCount} 个` : ''}通用聊天？
             </AlertDialogTitle>
             <AlertDialogDescription className="text-gray-600 dark:text-gray-400">
-              此操作无法撤销，{deleteCount > 1 ? '所选会话' : '会话'}中的所有消息都将被永久删除。
+              此操作无法撤销，{deleteCount > 1 ? '所选通用聊天' : '该通用聊天'}中的所有消息都将被永久删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -228,4 +228,3 @@ export function ConversationListUI({
     </>
   )
 }
-

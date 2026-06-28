@@ -4,7 +4,7 @@
  * Landing Input Component - 落地页输入区域（CSR）
  * 
  * Client Component - 处理用户交互
- * - 消息输入
+ * - 面试目标输入
  * - 发送按钮
  * - 登录对话框触发
  * 
@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
 /**
- * 输入区域组件（Client Component）
+ * 面试目标输入区域组件（Client Component）
  * 
  * 处理所有交互逻辑，保持简洁风格
  */
@@ -63,7 +63,7 @@ export function LandingInput() {
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息开始对话..."
+          placeholder="粘贴 JD 或输入你的面试目标..."
           autoFocus
           className="w-full px-6 py-4 pr-14 text-base rounded-2xl border-2 border-border bg-background focus:outline-none focus:border-primary transition-colors"
         />
@@ -79,7 +79,7 @@ export function LandingInput() {
 
       {/* 提示文字 */}
       <p className="text-center text-sm text-muted-foreground mt-6">
-        点击发送后，您需要登录或注册账号
+        点击后进入模拟面试创建页
       </p>
 
       {/* 登录对话框 */}
@@ -88,12 +88,10 @@ export function LandingInput() {
         onOpenChange={setShowLogin}
         onSuccess={() => {
           setShowLogin(false)
-          // 带上 pending message 跳转
-          const msg = encodeURIComponent(pendingMessageRef.current)
-          router.push(`/chat?msg=${msg}`)
+          const context = encodeURIComponent(pendingMessageRef.current)
+          router.push(`/interviews/new?context=${context}`)
         }}
       />
     </>
   )
 }
-
