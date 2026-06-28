@@ -10,6 +10,13 @@ export interface InterviewMaterialData {
   createdAt: string
 }
 
+export interface InterviewMessageData {
+  id: string
+  role: 'assistant' | 'user'
+  content: string
+  createdAt: string
+}
+
 export interface InterviewData {
   id: string
   userId: string
@@ -19,6 +26,7 @@ export interface InterviewData {
   createdAt: string
   updatedAt: string
   materials: InterviewMaterialData[]
+  messages: InterviewMessageData[]
 }
 
 export interface CreateInterviewData {
@@ -44,6 +52,7 @@ function serializeInterview(interview: {
   createdAt: Date
   updatedAt: Date
   materials: Array<{ id: string; content: string; createdAt: Date }>
+  messages?: Array<{ id: string; role: string; content: string; createdAt: Date }>
 }): InterviewData {
   return {
     id: interview.id,
@@ -57,6 +66,12 @@ function serializeInterview(interview: {
       id: material.id,
       content: material.content,
       createdAt: material.createdAt.toISOString(),
+    })),
+    messages: (interview.messages || []).map((message) => ({
+      id: message.id,
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
     })),
   }
 }

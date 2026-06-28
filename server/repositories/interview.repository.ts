@@ -47,6 +47,9 @@ export const InterviewRepository = {
         materials: {
           orderBy: { createdAt: 'asc' },
         },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     })
   },

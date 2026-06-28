@@ -2,10 +2,11 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Loader2 } from 'lucide-react'
+import { ArrowLeft, Bot, FileText, Loader2, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { useInterviewStore } from '@/features/interview/store/interview.store'
 
 interface InterviewRoomProps {
@@ -22,6 +23,15 @@ function summarizeMaterial(content: string) {
   const compact = content.replace(/\s+/g, ' ').trim()
   if (compact.length <= 360) return compact
   return `${compact.slice(0, 360)}...`
+}
+
+function formatMessageTime(value: string) {
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
 }
 
 export function InterviewRoom({ interviewId }: InterviewRoomProps) {
@@ -61,6 +71,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   }
 
   const material = interview.materials[0]?.content || ''
+  const hasMessages = interview.messages.length > 0
 
   return (
     <div className="min-h-screen bg-background px-4 py-8">
@@ -88,15 +99,53 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="rounded-md">
             <CardHeader>
-              <CardTitle className="text-xl">Interview room</CardTitle>
-              <CardDescription>
-                This session is ready. The next slice will generate the first AI question here.
-              </CardDescription>
+              <CardTitle className="text-xl">Messages</CardTitle>
+              <CardDescription>Saved interview conversation for this session.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex min-h-72 items-center justify-center rounded-md border border-dashed text-center text-sm text-muted-foreground">
-                No interview messages yet.
-              </div>
+              {!hasMessages ? (
+                <div className="flex min-h-72 items-center justify-center rounded-md border border-dashed px-6 text-center text-sm text-muted-foreground">
+                  No interview messages yet.
+                </div>
+              ) : (
+                <div className="flex min-h-72 flex-col gap-4">
+                  {interview.messages.map((message) => {
+                    const isUser = message.role === 'user'
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
+                      >
+                        {!isUser && (
+                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                            <Bot className="h-4 w-4" />
+                          </div>
+                        )}
+                        <div
+                          className={cn(
+                            'max-w-[78%] rounded-md px-4 py-3 text-sm leading-6',
+                            isUser
+                              ? 'bg-primary/10 text-foreground'
+                              : 'border bg-background text-foreground'
+                          )}
+                        >
+                          <div className="mb-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                            <span>{isUser ? 'You' : 'Assistant'}</span>
+                            <span>{formatMessageTime(message.createdAt)}</span>
+                          </div>
+                          <p className="whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        {isUser && (
+                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <User className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 

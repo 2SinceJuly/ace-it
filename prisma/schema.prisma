@@ -137,6 +137,7 @@ model InterviewSession {
   difficulty String              @default("medium")
   status     String              @default("draft")
   materials  InterviewMaterial[]
+  messages   InterviewMessage[]
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
 
@@ -152,6 +153,17 @@ model InterviewMaterial {
   createdAt   DateTime         @default(now())
 
   @@index([interviewId])
+}
+
+model InterviewMessage {
+  id          String           @id @default(cuid())
+  interviewId String
+  interview   InterviewSession @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  role        String
+  content     String           @db.Text
+  createdAt   DateTime         @default(now())
+
+  @@index([interviewId, createdAt])
 }
 
 // 监控事件表 - 存储 SDK 上报的埋点数据
