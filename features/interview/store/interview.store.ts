@@ -5,6 +5,8 @@ import {
   createInterview as createInterviewAction,
   getInterviewById,
   getInterviews,
+  startInterview as startInterviewAction,
+  submitInterviewAnswer as submitInterviewAnswerAction,
   type CreateInterviewData,
   type InterviewData,
 } from '@/app/actions/interview'
@@ -18,6 +20,8 @@ interface InterviewState {
   loadInterviews: () => Promise<void>
   loadInterview: (id: string) => Promise<InterviewData | null>
   createInterview: (input: CreateInterviewData) => Promise<string>
+  startInterview: (id: string) => Promise<void>
+  submitInterviewAnswer: (id: string, content: string) => Promise<void>
   reset: () => void
 }
 
@@ -27,6 +31,12 @@ const initialState = {
   interviewsLoading: false,
   currentInterviewLoading: false,
   hasInitiallyLoaded: false,
+}
+
+function mergeInterview(interviews: InterviewData[], updatedInterview: InterviewData) {
+  return interviews.map((interview) =>
+    interview.id === updatedInterview.id ? updatedInterview : interview
+  )
 }
 
 export const useInterviewStore = create<InterviewState>((set) => ({
@@ -78,6 +88,30 @@ export const useInterviewStore = create<InterviewState>((set) => ({
     }))
 
     return result.data.id
+  },
+
+  startInterview: async (id) => {
+    const result = await startInterviewAction(id)
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to start interview.')
+    }
+
+    set((state) => ({
+      currentInterview: result.data!,
+      interviews: mergeInterview(state.interviews, result.data!),
+    }))
+  },
+
+  submitInterviewAnswer: async (id, content) => {
+    const result = await submitInterviewAnswerAction(id, content)
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to submit answer.')
+    }
+
+    set((state) => ({
+      currentInterview: result.data!,
+      interviews: mergeInterview(state.interviews, result.data!),
+    }))
   },
 
   reset: () => set(initialState),

@@ -40,15 +40,15 @@ export function InterviewList() {
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">Interviews</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">Mock interviews</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Create and review AI mock interview sessions.
+              Start a focused practice session from your role, resume, project notes, and JD.
             </p>
           </div>
           <Button asChild>
             <Link href="/interviews/new">
               <Plus className="h-4 w-4" />
-              New interview
+              New mock interview
             </Link>
           </Button>
         </div>
@@ -63,16 +63,16 @@ export function InterviewList() {
         {!isLoading && interviews.length === 0 && (
           <Card className="rounded-md">
             <CardHeader>
-              <CardTitle className="text-xl">No interviews yet</CardTitle>
+              <CardTitle className="text-xl">No mock interviews yet</CardTitle>
               <CardDescription>
-                Start with a target role and material. The AI interview flow will build on this session.
+                Create one session with the target role, resume, project material, and JD.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild>
                 <Link href="/interviews/new">
                   <Plus className="h-4 w-4" />
-                  Create first interview
+                  Create first mock interview
                 </Link>
               </Button>
             </CardContent>

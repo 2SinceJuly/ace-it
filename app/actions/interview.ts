@@ -3,6 +3,11 @@
 import { getCurrentUserId } from '@/server/auth/utils'
 import { audit } from '@/server/middleware/audit'
 import { InterviewRepository } from '@/server/repositories/interview.repository'
+import { UserRepository } from '@/server/repositories/user.repository'
+import {
+  generateFeedbackAndFollowUp,
+  generateFirstQuestion,
+} from '@/server/services/interview/interview-ai.service'
 
 export interface InterviewMaterialData {
   id: string
@@ -42,6 +47,7 @@ export interface ActionResult<T = void> {
 }
 
 const DIFFICULTIES = new Set(['easy', 'medium', 'hard'])
+const API_KEY_ERROR = 'API Key not configured. Please set your SiliconFlow API Key in your profile or contact administrator.'
 
 function serializeInterview(interview: {
   id: string
@@ -79,7 +85,7 @@ function serializeInterview(interview: {
 function serializeActionError(error: unknown, fallback: string): string {
   if (error instanceof Error) {
     if (error.message === 'Unauthorized') {
-      return 'Please sign in before creating an interview.'
+      return 'Please sign in before using interviews.'
     }
     return error.message
   }
@@ -101,6 +107,17 @@ function normalizeCreateInput(input: CreateInterviewData): CreateInterviewData {
   }
 
   return { position, difficulty, materialContent }
+}
+
+async function getApiKey(userId: string): Promise<string> {
+  const user = await UserRepository.findById(userId)
+  const apiKey = user?.apiKey || process.env.SILICONFLOW_API_KEY || process.env.OPENAI_API_KEY
+
+  if (!apiKey) {
+    throw new Error(API_KEY_ERROR)
+  }
+
+  return apiKey
 }
 
 export async function createInterview(
@@ -158,5 +175,80 @@ export async function getInterviewById(id: string): Promise<ActionResult<Intervi
   } catch (error) {
     console.error('[Action] getInterviewById failed:', error)
     return { success: false, error: serializeActionError(error, 'Failed to load interview.') }
+  }
+}
+
+export async function startInterview(interviewId: string): Promise<ActionResult<InterviewData>> {
+  try {
+    const userId = await getCurrentUserId()
+    const interview = await InterviewRepository.findById(interviewId, userId)
+
+    if (!interview) {
+      return { success: false, error: 'Interview not found.' }
+    }
+
+    if (interview.messages.length > 0) {
+      return { success: true, data: serializeInterview(interview) }
+    }
+
+    const apiKey = await getApiKey(userId)
+    const firstQuestion = await generateFirstQuestion(apiKey, interview)
+    const updatedInterview = await InterviewRepository.startWithAssistantMessage(
+      interview.id,
+      userId,
+      firstQuestion
+    )
+
+    await audit({
+      userId,
+      action: 'interview.start',
+      resourceId: interview.id,
+    })
+
+    return { success: true, data: serializeInterview(updatedInterview) }
+  } catch (error) {
+    console.error('[Action] startInterview failed:', error)
+    return { success: false, error: serializeActionError(error, 'Failed to start interview.') }
+  }
+}
+
+export async function submitInterviewAnswer(
+  interviewId: string,
+  content: string
+): Promise<ActionResult<InterviewData>> {
+  try {
+    const answer = content.trim()
+
+    if (!answer) {
+      return { success: false, error: 'Answer is required.' }
+    }
+
+    const userId = await getCurrentUserId()
+    const interview = await InterviewRepository.findById(interviewId, userId)
+
+    if (!interview) {
+      return { success: false, error: 'Interview not found.' }
+    }
+
+    await InterviewRepository.addMessage(interview.id, 'user', answer)
+
+    const apiKey = await getApiKey(userId)
+    const assistantReply = await generateFeedbackAndFollowUp(apiKey, interview, answer)
+    const updatedInterview = await InterviewRepository.addAssistantReplyAndMarkInProgress(
+      interview.id,
+      userId,
+      assistantReply
+    )
+
+    await audit({
+      userId,
+      action: 'interview.answer',
+      resourceId: interview.id,
+    })
+
+    return { success: true, data: serializeInterview(updatedInterview) }
+  } catch (error) {
+    console.error('[Action] submitInterviewAnswer failed:', error)
+    return { success: false, error: serializeActionError(error, 'Failed to submit answer.') }
   }
 }

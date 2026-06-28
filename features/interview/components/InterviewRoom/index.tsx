@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Bot, FileText, Loader2, User } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Bot, FileText, Loader2, Send, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -38,10 +38,49 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const interview = useInterviewStore((state) => state.currentInterview)
   const isLoading = useInterviewStore((state) => state.currentInterviewLoading)
   const loadInterview = useInterviewStore((state) => state.loadInterview)
+  const startInterview = useInterviewStore((state) => state.startInterview)
+  const submitInterviewAnswer = useInterviewStore((state) => state.submitInterviewAnswer)
+  const [answer, setAnswer] = useState('')
+  const [isStarting, setIsStarting] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadInterview(interviewId)
   }, [interviewId, loadInterview])
+
+  const handleStartInterview = async () => {
+    if (isStarting) return
+
+    setError(null)
+    setIsStarting(true)
+
+    try {
+      await startInterview(interviewId)
+    } catch (startError) {
+      setError(startError instanceof Error ? startError.message : 'Failed to start interview.')
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  const handleSubmitAnswer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (isSubmitting || !answer.trim()) return
+
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      await submitInterviewAnswer(interviewId, answer)
+      setAnswer('')
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Failed to submit answer.')
+      await loadInterview(interviewId)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -72,6 +111,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
   const material = interview.materials[0]?.content || ''
   const hasMessages = interview.messages.length > 0
+  const isBusy = isStarting || isSubmitting
 
   return (
     <div className="min-h-screen bg-background px-4 py-8">
@@ -91,10 +131,18 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
               <Badge variant="outline">{interview.status}</Badge>
             </div>
           </div>
-          <Button disabled title="AI question generation is planned for the next slice.">
+          <Button onClick={handleStartInterview} disabled={isBusy || hasMessages}>
+            {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
             Start AI interview
           </Button>
         </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="rounded-md">
@@ -102,10 +150,17 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
               <CardTitle className="text-xl">Messages</CardTitle>
               <CardDescription>Saved interview conversation for this session.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               {!hasMessages ? (
                 <div className="flex min-h-72 items-center justify-center rounded-md border border-dashed px-6 text-center text-sm text-muted-foreground">
-                  No interview messages yet.
+                  {isStarting ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating the first question...
+                    </span>
+                  ) : (
+                    'No interview messages yet.'
+                  )}
                 </div>
               ) : (
                 <div className="flex min-h-72 flex-col gap-4">
@@ -145,6 +200,32 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                     )
                   })}
                 </div>
+              )}
+
+              {hasMessages && (
+                <form className="space-y-3 border-t pt-4" onSubmit={handleSubmitAnswer}>
+                  <textarea
+                    value={answer}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    placeholder="Type your answer..."
+                    disabled={isBusy}
+                    className={cn(
+                      'min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors',
+                      'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      'disabled:cursor-not-allowed disabled:opacity-50'
+                    )}
+                  />
+                  <div className="flex justify-end">
+                    <Button type="submit" disabled={isBusy || !answer.trim()}>
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                      Submit answer
+                    </Button>
+                  </div>
+                </form>
               )}
             </CardContent>
           </Card>

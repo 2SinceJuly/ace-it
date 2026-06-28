@@ -13,6 +13,8 @@ export type AuditAction =
   | 'message.delete'
   | 'interview.create'
   | 'interview.view'
+  | 'interview.start'
+  | 'interview.answer'
   | 'auth.login'
   | 'auth.logout'
   | 'auth.link_account'

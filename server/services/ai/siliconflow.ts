@@ -5,6 +5,7 @@
  */
 
 import { getDefaultModel, getModelById } from '@/features/chat/constants/models'
+import { parseSSELine, splitSSEBuffer } from '@/lib/utils/sse'
 
 const SILICONFLOW_API_URL = 'https://api.siliconflow.cn/v1/chat/completions'
 
@@ -24,6 +25,14 @@ export interface ChatCompletionOptions {
 
 export interface SiliconFlowResponse {
   reader: ReadableStreamDefaultReader<Uint8Array>
+}
+
+interface SiliconFlowStreamChunk {
+  choices?: Array<{
+    delta?: {
+      content?: string
+    }
+  }>
 }
 
 /**
@@ -107,4 +116,40 @@ export async function createChatCompletion(
   }
 
   throw new Error(`SiliconFlow API error: ${lastError || 'Unknown error'}`)
+}
+
+/**
+ * 调用 SiliconFlow Chat Completion API，并把流式返回拼成普通文本。
+ */
+export async function createChatCompletionText(
+  apiKey: string,
+  options: ChatCompletionOptions
+): Promise<string> {
+  const { reader } = await createChatCompletion(apiKey, options)
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let content = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const { lines, remaining } = splitSSEBuffer(buffer)
+    buffer = remaining
+
+    for (const line of lines) {
+      const data = parseSSELine(line)
+      if (!data) continue
+
+      try {
+        const parsed = JSON.parse(data) as SiliconFlowStreamChunk
+        content += parsed.choices?.[0]?.delta?.content || ''
+      } catch {
+        // Ignore malformed stream fragments and keep reading.
+      }
+    }
+  }
+
+  return content.trim()
 }
