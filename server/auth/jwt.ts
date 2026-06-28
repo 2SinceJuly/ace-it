@@ -6,9 +6,11 @@
 
 import * as jose from 'jose'
 
-const secret = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'default-secret-change-in-production'
-)
+const secretValue = process.env.JWT_SECRET
+if (!secretValue) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
+const secret = new TextEncoder().encode(secretValue)
 
 export interface JWTPayload {
   userId: string

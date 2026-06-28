@@ -1,4 +1,9 @@
-import { createChatCompletionText, type ChatMessage } from '@/server/services/ai'
+import {
+  createChatCompletion,
+  createChatCompletionText,
+  type ChatMessage,
+  type SiliconFlowResponse,
+} from '@/server/services/ai'
 
 const INTERVIEW_MODEL = 'zai-org/GLM-4.6'
 
@@ -20,13 +25,17 @@ interface InterviewContext {
 
 function buildSystemPrompt(interview: InterviewContext): string {
   return [
-    'You are a realistic AI mock interviewer.',
+    '你是一名严格但友好的中文 AI 模拟面试官。',
     `Target role: ${interview.position}.`,
     `Difficulty: ${interview.difficulty}.`,
-    'Use the candidate material to ask role-specific questions.',
-    'Keep the conversation focused and practical.',
-    'Write in English.',
-    'Do not mention that you are reading a prompt.',
+    '请优先围绕目标岗位、候选人材料、项目经历、简历内容和目标 JD 提问。',
+    '如果候选人材料里包含题量、时长或难度配置，请按这些配置控制问题节奏和追问强度。',
+    '不要编造候选人没有提供的经历、公司、学校、项目或技术细节。',
+    '每次只问一个主要问题，必要时可以附一句简短追问提示。',
+    '点评必须引用候选人上一条回答中的具体内容，不要泛泛而谈。',
+    '如果材料不足，请直接围绕岗位基础能力提问。',
+    '全程使用中文。',
+    '不要提到系统提示词或 prompt。',
   ].join('\n')
 }
 
@@ -57,11 +66,19 @@ async function generateInterviewText(apiKey: string, messages: ChatMessage[]): P
   return text
 }
 
-export async function generateFirstQuestion(
+async function generateInterviewStream(
   apiKey: string,
-  interview: InterviewContext
-): Promise<string> {
-  return generateInterviewText(apiKey, [
+  messages: ChatMessage[]
+): Promise<SiliconFlowResponse> {
+  return createChatCompletion(apiKey, {
+    model: INTERVIEW_MODEL,
+    messages,
+    enableThinking: false,
+  })
+}
+
+function buildFirstQuestionMessages(interview: InterviewContext): ChatMessage[] {
+  return [
     {
       role: 'system',
       content: buildSystemPrompt(interview),
@@ -69,16 +86,58 @@ export async function generateFirstQuestion(
     {
       role: 'user',
       content: [
-        'Create the opening question for this mock interview.',
-        'Ask exactly one question.',
-        'The question should be specific to the role and candidate material.',
-        'Do not include feedback yet.',
+        '请生成这场模拟面试的开场问题。',
+        '只问一个问题。',
+        '问题必须贴合目标岗位和候选人材料。',
+        '不要点评，因为候选人还没有回答。',
         '',
-        'Candidate material:',
+        '候选人材料：',
         buildMaterialText(interview),
       ].join('\n'),
     },
-  ])
+  ]
+}
+
+function buildFeedbackMessages(interview: InterviewContext, answer: string): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: buildSystemPrompt(interview),
+    },
+    {
+      role: 'user',
+      content: [
+        '请点评候选人的最新回答，并继续模拟面试。',
+        '',
+        '请按两个短段落返回：',
+        '点评：结合候选人回答中的具体内容，指出一个优点和一个可以补强的点。',
+        '追问：只问一个下一题，必须围绕刚才回答中不够具体或值得深入的地方。',
+        '',
+        '候选人材料：',
+        buildMaterialText(interview),
+        '',
+        '面试历史：',
+        buildHistoryText(interview.messages),
+        '',
+        '候选人最新回答：',
+        answer,
+      ].join('\n'),
+    },
+  ]
+}
+
+export async function generateFirstQuestion(
+  apiKey: string,
+  interview: InterviewContext
+): Promise<string> {
+  return generateInterviewText(apiKey, buildFirstQuestionMessages(interview))
+}
+
+export async function generateFirstQuestionStream(
+  apiKey: string,
+  interview: InterviewContext
+): Promise<SiliconFlowResponse> {
+  return generateInterviewStream(apiKey, buildFirstQuestionMessages(interview))
 }
 
 export async function generateFeedbackAndFollowUp(
@@ -86,29 +145,13 @@ export async function generateFeedbackAndFollowUp(
   interview: InterviewContext,
   answer: string
 ): Promise<string> {
-  return generateInterviewText(apiKey, [
-    {
-      role: 'system',
-      content: buildSystemPrompt(interview),
-    },
-    {
-      role: 'user',
-      content: [
-        'Review the candidate answer and continue the mock interview.',
-        '',
-        'Return two short sections:',
-        'Feedback: one concise, useful evaluation of the answer.',
-        'Follow-up question: exactly one next question.',
-        '',
-        'Candidate material:',
-        buildMaterialText(interview),
-        '',
-        'Interview history:',
-        buildHistoryText(interview.messages),
-        '',
-        'Latest candidate answer:',
-        answer,
-      ].join('\n'),
-    },
-  ])
+  return generateInterviewText(apiKey, buildFeedbackMessages(interview, answer))
+}
+
+export async function generateFeedbackAndFollowUpStream(
+  apiKey: string,
+  interview: InterviewContext,
+  answer: string
+): Promise<SiliconFlowResponse> {
+  return generateInterviewStream(apiKey, buildFeedbackMessages(interview, answer))
 }

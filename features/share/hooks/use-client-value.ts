@@ -14,6 +14,7 @@ export function useClientValue<T>(factory: () => T, fallback: T): T {
   
   useEffect(() => {
     setValue(factory())
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- factory 只在客户端 hydration 后调用一次，不需要追踪变化
   }, [])
   
   return value

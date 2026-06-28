@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useState, type FormEvent } from 'react'
-import Link from 'next/link'
 import { AlertCircle, ArrowLeft, Bot, FileText, Loader2, Send, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useInterviewStore } from '@/features/interview/store/interview.store'
+import { MessageContent } from '@/features/chat/components/MessageContent'
 
 interface InterviewRoomProps {
   interviewId: string
@@ -38,8 +38,10 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const interview = useInterviewStore((state) => state.currentInterview)
   const isLoading = useInterviewStore((state) => state.currentInterviewLoading)
   const loadInterview = useInterviewStore((state) => state.loadInterview)
-  const startInterview = useInterviewStore((state) => state.startInterview)
-  const submitInterviewAnswer = useInterviewStore((state) => state.submitInterviewAnswer)
+  const startInterviewStream = useInterviewStore((state) => state.startInterviewStream)
+  const submitInterviewAnswerStream = useInterviewStore((state) => state.submitInterviewAnswerStream)
+  const streamingMessageId = useInterviewStore((state) => state.streamingMessageId)
+  const streamingPhase = useInterviewStore((state) => state.streamingPhase)
   const [answer, setAnswer] = useState('')
   const [isStarting, setIsStarting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -56,7 +58,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
     setIsStarting(true)
 
     try {
-      await startInterview(interviewId)
+      await startInterviewStream(interviewId)
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : 'Failed to start interview.')
     } finally {
@@ -72,7 +74,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
     setIsSubmitting(true)
 
     try {
-      await submitInterviewAnswer(interviewId, answer)
+      await submitInterviewAnswerStream(interviewId, answer)
       setAnswer('')
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to submit answer.')
@@ -84,24 +86,24 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+      <div className="flex min-h-[560px] items-center justify-center text-[#667085]">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        Loading interview...
+        正在加载面试...
       </div>
     )
   }
 
   if (!interview) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md rounded-md">
+      <div className="flex min-h-[560px] items-center justify-center px-4">
+        <Card className="w-full max-w-md rounded-[24px]">
           <CardHeader>
-            <CardTitle>Interview not found</CardTitle>
-            <CardDescription>The session may have been removed or is not available.</CardDescription>
+            <CardTitle>面试不存在</CardTitle>
+            <CardDescription>这场面试可能已被删除，或当前账号无法访问。</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild>
-              <Link href="/interviews">Back to interviews</Link>
+            <Button onClick={() => window.location.href = '/interviews'}>
+              返回模拟面试
             </Button>
           </CardContent>
         </Card>
@@ -114,52 +116,59 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const isBusy = isStarting || isSubmitting
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <Button asChild variant="ghost" className="w-fit">
-          <Link href="/interviews">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-[28px] border border-[#e5e9f2] bg-white p-5 shadow-[0_20px_70px_rgba(16,24,40,0.06)] md:p-6">
+        <Button variant="ghost" className="w-fit rounded-2xl text-[#667085]" onClick={() => window.location.href = '/interviews'}>
+          <ArrowLeft className="h-4 w-4" />
+          返回
         </Button>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">{interview.position}</h1>
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">{interview.position}</h2>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="secondary">{difficultyLabels[interview.difficulty] || interview.difficulty}</Badge>
-              <Badge variant="outline">{interview.status}</Badge>
+              <Badge className="rounded-full bg-[#eef3ff] text-[#3f66e8] hover:bg-[#eef3ff]">
+                {difficultyLabels[interview.difficulty] || interview.difficulty}
+              </Badge>
+              <Badge className="rounded-full bg-[#f8fafc] text-[#667085] hover:bg-[#f8fafc]">
+                {interview.status}
+              </Badge>
             </div>
           </div>
-          <Button onClick={handleStartInterview} disabled={isBusy || hasMessages}>
+          <Button
+            onClick={handleStartInterview}
+            disabled={isBusy || hasMessages}
+            className="h-12 rounded-2xl bg-[#f27d6a] px-6 hover:bg-[#df6e5d]"
+          >
             {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
             Start AI interview
           </Button>
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
+      </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="rounded-md">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="rounded-[28px] border-[#e5e9f2] shadow-[0_20px_70px_rgba(16,24,40,0.05)]">
             <CardHeader>
-              <CardTitle className="text-xl">Messages</CardTitle>
-              <CardDescription>Saved interview conversation for this session.</CardDescription>
+              <CardTitle className="text-xl">面试对话</CardTitle>
+              <CardDescription>AI 会根据你的回答继续点评和追问。</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {!hasMessages ? (
-                <div className="flex min-h-72 items-center justify-center rounded-md border border-dashed px-6 text-center text-sm text-muted-foreground">
+                <div className="flex min-h-72 items-center justify-center rounded-[24px] border border-dashed border-[#d7dde8] bg-[#fbfcff] px-6 text-center text-sm text-[#667085]">
                   {isStarting ? (
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating the first question...
+                      正在生成第一题...
                     </span>
                   ) : (
-                    'No interview messages yet.'
+                    '还没有面试消息，点击右上角开始。'
                   )}
                 </div>
               ) : (
@@ -173,26 +182,41 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                         className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
                       >
                         {!isUser && (
-                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff0ed] text-[#f27d6a]">
                             <Bot className="h-4 w-4" />
                           </div>
                         )}
                         <div
                           className={cn(
-                            'max-w-[78%] rounded-md px-4 py-3 text-sm leading-6',
+                            'max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-6',
                             isUser
-                              ? 'bg-primary/10 text-foreground'
-                              : 'border bg-background text-foreground'
+                              ? 'bg-[#eef3ff] text-[#101828]'
+                              : 'border border-[#e5e9f2] bg-white text-[#101828]'
                           )}
                         >
                           <div className="mb-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                            <span>{isUser ? 'You' : 'Assistant'}</span>
+                            <span>{isUser ? '你' : '面试官'}</span>
                             <span>{formatMessageTime(message.createdAt)}</span>
                           </div>
-                          <p className="whitespace-pre-wrap">{message.content}</p>
+                          {isUser ? (
+                            <p className="whitespace-pre-wrap">{message.content}</p>
+                          ) : message.content ? (
+                            <MessageContent
+                              content={message.content}
+                              isStreaming={message.id === streamingMessageId}
+                              disableMediaBlocks
+                            />
+                          ) : message.id === streamingMessageId ? (
+                            <span className="inline-flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              {streamingPhase === 'thinking'
+                                ? '正在思考...'
+                                : '正在输出...'}
+                            </span>
+                          ) : null}
                         </div>
                         {isUser && (
-                          <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-[#3f66e8]">
                             <User className="h-4 w-4" />
                           </div>
                         )}
@@ -207,22 +231,26 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                   <textarea
                     value={answer}
                     onChange={(event) => setAnswer(event.target.value)}
-                    placeholder="Type your answer..."
+                    placeholder="输入你的回答..."
                     disabled={isBusy}
                     className={cn(
-                      'min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors',
-                      'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      'min-h-28 w-full resize-y rounded-[22px] border border-[#dfe4ee] bg-[#fbfcff] px-4 py-3 text-sm shadow-sm transition-colors',
+                      'placeholder:text-[#98a2b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f7b3a8]',
                       'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                   />
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={isBusy || !answer.trim()}>
+                    <Button
+                      type="submit"
+                      disabled={isBusy || !answer.trim()}
+                      className="h-11 rounded-2xl bg-[#101828] px-5 hover:bg-[#1d2939]"
+                    >
                       {isSubmitting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Send className="h-4 w-4" />
                       )}
-                      Submit answer
+                      提交回答
                     </Button>
                   </div>
                 </form>
@@ -230,22 +258,21 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
             </CardContent>
           </Card>
 
-          <Card className="rounded-md">
+          <Card className="rounded-[28px] border-[#e5e9f2]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
                 <FileText className="h-5 w-5" />
-                Material
+                面试材料
               </CardTitle>
-              <CardDescription>Saved source material for this interview.</CardDescription>
+              <CardDescription>本场面试使用的简历、项目和 JD 摘要。</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+              <p className="whitespace-pre-wrap rounded-[22px] bg-[#f8fafc] p-4 text-sm leading-6 text-[#667085]">
                 {summarizeMaterial(material)}
               </p>
             </CardContent>
           </Card>
         </div>
-      </div>
     </div>
   )
 }

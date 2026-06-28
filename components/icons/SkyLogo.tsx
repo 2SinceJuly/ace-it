@@ -11,6 +11,7 @@
  */
 
 import * as React from 'react'
+import Image from 'next/image'
 
 interface SkyLogoProps {
   /** 宽度 */
@@ -140,7 +141,7 @@ export function SkyLogoIcon({
   className = ''
 }: Omit<SkyLogoProps, 'showText'>) {
   return (
-    <img
+    <Image
       src="/logo.svg"
       alt="Ace It"
       width={width}

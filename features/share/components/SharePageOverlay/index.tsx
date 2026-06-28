@@ -12,7 +12,7 @@
  * - 关闭后有 300ms 冷却时间，避免关闭动画期间的点击误触发
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { LoginDialog } from '@/features/auth/components/LoginDialog'
 
@@ -29,16 +29,16 @@ export function SharePageOverlay({ conversationId, delayMs = 5000 }: SharePageOv
   const cooldownRef = useRef(false) // 冷却状态，防止关闭后立即重新打开
   
   // 触发登录弹窗
-  const triggerLogin = () => {
+  const triggerLogin = useCallback(() => {
     if (showLogin || cooldownRef.current) return
     setShowLogin(true)
-  }
-  
+  }, [showLogin])
+
   // 启动延迟定时器
-  const startDelayTimer = () => {
+  const startDelayTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current)
     timerRef.current = setTimeout(triggerLogin, delayMs)
-  }
+  }, [triggerLogin, delayMs])
   
   // 初始延迟触发
   useEffect(() => {
@@ -46,21 +46,21 @@ export function SharePageOverlay({ conversationId, delayMs = 5000 }: SharePageOv
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [])
+  }, [startDelayTimer])
   
   // 点击触发（仅在 Dialog 关闭且不在冷却期时）
   useEffect(() => {
     if (showLogin) return // Dialog 打开时不监听
-    
+
     const handleClick = () => {
       if (!cooldownRef.current) {
         triggerLogin()
       }
     }
-    
+
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
-  }, [showLogin])
+  }, [showLogin, triggerLogin])
   
   // 关闭后重新启动定时器，并设置冷却期
   const handleOpenChange = (open: boolean) => {
