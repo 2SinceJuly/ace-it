@@ -102,13 +102,18 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const handleCompleteInterview = async () => {
     if (isCompleting) return
     setError(null)
+    setIsSubmitting(true) // 复用 submitting 状态显示加载，避免新增 UI 状态
 
-    const completed = await completeInterview(interviewId)
-    if (completed) {
-      // 跳转到面试报告页查看本次表现
-      router.push(`/interviews/report/${interviewId}`)
-    } else {
-      setError('结束面试失败，请重试。')
+    try {
+      const completed = await completeInterview(interviewId)
+      if (completed) {
+        // 跳转到面试报告页查看本次表现
+        router.push(`/interviews/report/${interviewId}`)
+      } else {
+        setError('结束面试失败，请重试。')
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 

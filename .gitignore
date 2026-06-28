@@ -85,6 +85,10 @@ lib/generated/prisma/
 prisma/migrations/*
 !prisma/migrations/20260625145000_add_interviews/
 !prisma/migrations/20260625145000_add_interviews/migration.sql
+!prisma/migrations/20260628100000_add_interview_messages/
+!prisma/migrations/20260628100000_add_interview_messages/migration.sql
+!prisma/migrations/20260628160000_add_interview_report/
+!prisma/migrations/20260628160000_add_interview_report/migration.sql
 
 # Local docs and caches
 docs/

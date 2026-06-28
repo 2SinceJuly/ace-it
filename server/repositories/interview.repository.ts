@@ -1,4 +1,5 @@
 import { prisma } from '@/server/db/client'
+import type { InterviewEvaluation } from '@/server/services/interview/interview-evaluation.service'
 
 export interface CreateInterviewInput {
   position: string
@@ -13,6 +14,7 @@ const interviewInclude = {
   messages: {
     orderBy: { createdAt: 'asc' as const },
   },
+  report: true,
 }
 
 export const InterviewRepository = {
@@ -117,6 +119,40 @@ export const InterviewRepository = {
       where: { id },
       data: { status: 'completed' },
       include: interviewInclude,
+    })
+  },
+
+  /**
+   * 把 AI 生成的结构化评估写入 InterviewReport 表
+   * upsert 保证幂等：重复调用不会报错，会覆盖旧报告
+   */
+  async saveReport(
+    interviewId: string,
+    evaluation: InterviewEvaluation
+  ) {
+    return prisma.interviewReport.upsert({
+      where: { interviewId },
+      create: {
+        interviewId,
+        score: evaluation.score,
+        dimensions: evaluation.dimensions,
+        summary: evaluation.summary,
+        highlights: evaluation.highlights,
+        weaknesses: evaluation.weaknesses,
+        suggestions: evaluation.suggestions,
+        practicePlan: evaluation.practicePlan,
+        recommendations: evaluation.recommendations,
+      },
+      update: {
+        score: evaluation.score,
+        dimensions: evaluation.dimensions,
+        summary: evaluation.summary,
+        highlights: evaluation.highlights,
+        weaknesses: evaluation.weaknesses,
+        suggestions: evaluation.suggestions,
+        practicePlan: evaluation.practicePlan,
+        recommendations: evaluation.recommendations,
+      },
     })
   },
 }

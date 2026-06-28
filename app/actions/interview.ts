@@ -8,6 +8,7 @@ import {
   generateFeedbackAndFollowUp,
   generateFirstQuestion,
 } from '@/server/services/interview/interview-ai.service'
+import { generateInterviewEvaluation } from '@/server/services/interview/interview-evaluation.service'
 
 export interface InterviewMaterialData {
   id: string
@@ -22,6 +23,20 @@ export interface InterviewMessageData {
   createdAt: string
 }
 
+export interface InterviewReportData {
+  id: string
+  interviewId: string
+  score: number
+  dimensions: Array<{ subject: string; value: number }>
+  summary: string
+  highlights: string[]
+  weaknesses: string[]
+  suggestions: string[]
+  practicePlan: Array<{ day: string; title: string; tasks: string[]; goal: string }>
+  recommendations: Array<{ title: string; meta: string; reason: string }>
+  createdAt: string
+}
+
 export interface InterviewData {
   id: string
   userId: string
@@ -32,6 +47,7 @@ export interface InterviewData {
   updatedAt: string
   materials: InterviewMaterialData[]
   messages: InterviewMessageData[]
+  report: InterviewReportData | null
 }
 
 export interface CreateInterviewData {
@@ -59,6 +75,19 @@ function serializeInterview(interview: {
   updatedAt: Date
   materials: Array<{ id: string; content: string; createdAt: Date }>
   messages?: Array<{ id: string; role: string; content: string; createdAt: Date }>
+  report?: {
+    id: string
+    interviewId: string
+    score: number
+    dimensions: unknown
+    summary: string
+    highlights: unknown
+    weaknesses: unknown
+    suggestions: unknown
+    practicePlan: unknown
+    recommendations: unknown
+    createdAt: Date
+  } | null
 }): InterviewData {
   return {
     id: interview.id,
@@ -79,6 +108,21 @@ function serializeInterview(interview: {
       content: message.content,
       createdAt: message.createdAt.toISOString(),
     })),
+    report: interview.report
+      ? {
+          id: interview.report.id,
+          interviewId: interview.report.interviewId,
+          score: interview.report.score,
+          dimensions: interview.report.dimensions as Array<{ subject: string; value: number }>,
+          summary: interview.report.summary,
+          highlights: interview.report.highlights as string[],
+          weaknesses: interview.report.weaknesses as string[],
+          suggestions: interview.report.suggestions as string[],
+          practicePlan: interview.report.practicePlan as Array<{ day: string; title: string; tasks: string[]; goal: string }>,
+          recommendations: interview.report.recommendations as Array<{ title: string; meta: string; reason: string }>,
+          createdAt: interview.report.createdAt.toISOString(),
+        }
+      : null,
   }
 }
 
@@ -264,10 +308,28 @@ export async function completeInterview(
       return { success: false, error: 'Interview not found.' }
     }
 
-    if (interview.status === 'completed') {
+    // 幂等：已完成且已有报告，直接返回
+    if (interview.status === 'completed' && interview.report) {
       return { success: true, data: serializeInterview(interview) }
     }
 
+    // 1. 生成 AI 评估（仅在已回答至少 1 个问题时才生成，否则跳过）
+    const hasUserAnswers = interview.messages.some((message) => message.role === 'user')
+    if (hasUserAnswers && !interview.report) {
+      const apiKey = await getApiKey(userId)
+      const evaluation = await generateInterviewEvaluation(apiKey, {
+        position: interview.position,
+        difficulty: interview.difficulty,
+        materials: interview.materials.map((material) => ({ content: material.content })),
+        messages: interview.messages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+      })
+      await InterviewRepository.saveReport(interview.id, evaluation)
+    }
+
+    // 2. 更新状态为已完成
     const updatedInterview = await InterviewRepository.markCompleted(interview.id, userId)
 
     await audit({

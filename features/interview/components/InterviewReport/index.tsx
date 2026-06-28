@@ -50,19 +50,23 @@ export function InterviewReport({ interviewId }: InterviewReportProps) {
     if (!interview) return null
 
     const score = getInterviewScore(interview)
-    const dimensions = getDimensionData(score)
+    const dimensions = getDimensionData(interview)
     const insights = getReportInsights(interview)
     const latestAssistantText = getLatestAssistantText(interview)
+
+    // 优先用 AI 生成的真实摘要，没有时回退到最近一条 AI 回答
+    const summary = interview.report?.summary
+      ? interview.report.summary
+      : latestAssistantText.length > 0
+        ? latestAssistantText.slice(0, 160)
+        : `本场面试围绕 ${interview.position} 展开，后续完成更多问答后可以生成更完整的复盘摘要。`
 
     return {
       score,
       dimensions,
       insights,
       latestAssistantText,
-      summary:
-        latestAssistantText.length > 0
-          ? latestAssistantText.slice(0, 160)
-          : `本场面试围绕 ${interview.position} 展开，后续完成更多问答后可以生成更完整的复盘摘要。`,
+      summary,
     }
   }, [interview])
 

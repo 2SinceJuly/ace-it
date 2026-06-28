@@ -1,4 +1,4 @@
-import type { InterviewData } from '@/app/actions/interview'
+import type { InterviewData, InterviewReportData } from '@/app/actions/interview'
 
 export interface ReportDimension {
   subject: string
@@ -18,7 +18,17 @@ function stableOffset(id: string) {
   return id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 9
 }
 
+/**
+ * 计算面试得分
+ *
+ * 优先使用 AI 生成的真实报告分数；
+ * 没有报告时回退到基于消息数量和材料长度的启发式估算（用于分析页历史趋势）。
+ */
 export function getInterviewScore(interview: InterviewData, index = 0) {
+  if (interview.report) {
+    return interview.report.score
+  }
+
   if (interview.messages.length === 0) return 0
 
   const userCount = interview.messages.filter((message) => message.role === 'user').length
@@ -44,7 +54,31 @@ export function getQuestionCount(interview: InterviewData) {
   return Math.max(1, interview.messages.filter((message) => message.role === 'assistant').length)
 }
 
-export function getDimensionData(score: number): ReportDimension[] {
+/**
+ * 获取 5 维度雷达图数据
+ *
+ * 优先使用 AI 生成的真实维度数据；
+ * 没有时用分数推算（向后兼容历史无报告数据）。
+ */
+export function getDimensionData(interview: InterviewData): ReportDimension[] {
+  if (interview.report?.dimensions?.length) {
+    return interview.report.dimensions
+  }
+
+  const score = getInterviewScore(interview)
+  return [
+    { subject: '技术', value: clamp(score + 4) },
+    { subject: '知识', value: clamp(score + 8) },
+    { subject: '表达', value: clamp(score - 6) },
+    { subject: '逻辑', value: clamp(score - 2) },
+    { subject: '匹配', value: clamp(score + 1) },
+  ]
+}
+
+/**
+ * 向后兼容的旧调用签名：直接传 number 时按估算维度推算
+ */
+export function getDimensionDataFromScore(score: number): ReportDimension[] {
   return [
     { subject: '技术', value: clamp(score + 4) },
     { subject: '知识', value: clamp(score + 8) },
@@ -82,6 +116,12 @@ export function getMaterialPreview(interview: InterviewData) {
   return content.length > 120 ? `${content.slice(0, 120)}...` : content
 }
 
+/**
+ * 获取报告洞察数据
+ *
+ * 优先使用 AI 生成的真实报告；
+ * 没有时用占位文案（保留原有 fallback 行为，避免空报告页）。
+ */
 export function getReportInsights(interview: InterviewData): {
   highlights: string[]
   weaknesses: string[]
@@ -89,9 +129,44 @@ export function getReportInsights(interview: InterviewData): {
   practicePlan: Array<{ day: string; title: string; tasks: string[]; goal: string }>
   recommendations: Array<{ title: string; meta: string; reason: string }>
 } {
+  const report: InterviewReportData | null = interview.report
   const position = interview.position || '目标岗位'
   const hasAnswers = interview.messages.some((message) => message.role === 'user')
 
+  if (report) {
+    return {
+      highlights: report.highlights.length > 0
+        ? report.highlights
+        : [`能围绕 ${position} 的职责展开回答，说明候选人已经具备岗位语境。`],
+      weaknesses: report.weaknesses.length > 0
+        ? report.weaknesses
+        : ['回答中需要补充更具体的项目背景、约束条件和结果指标。'],
+      suggestions: report.suggestions.length > 0
+        ? report.suggestions
+        : ['每道题先用一句话给出结论，再展开实现细节。'],
+      practicePlan: report.practicePlan.length > 0
+        ? report.practicePlan
+        : [
+            {
+              day: 'Day 1',
+              title: '整理岗位素材',
+              tasks: ['提炼 3 个与岗位最相关的项目经历', '为每个项目补充职责、难点和结果', '准备 1 分钟项目介绍'],
+              goal: '让回答从"做过什么"变成"为什么这样做"。',
+            },
+          ],
+      recommendations: report.recommendations.length > 0
+        ? report.recommendations
+        : [
+            {
+              title: `${position} 高频追问清单`,
+              meta: '岗位知识库 · 面试复盘',
+              reason: '命中当前岗位与最近一次问答，适合在下一场面试前快速过一遍。',
+            },
+          ],
+    }
+  }
+
+  // 无报告时的 fallback（保留原有占位文案）
   return {
     highlights: [
       `能围绕 ${position} 的职责展开回答，说明候选人已经具备岗位语境。`,
@@ -108,7 +183,7 @@ export function getReportInsights(interview: InterviewData): {
     suggestions: [
       '每道题先用一句话给出结论，再展开实现细节。',
       '补充项目中的真实数据、性能指标或协作约束。',
-      '把“为什么这样做”和“有没有替代方案”作为固定回答模块。',
+      '把"为什么这样做"和"有没有替代方案"作为固定回答模块。',
       '复盘最近一次追问，把薄弱点整理成下一场面试的练习清单。',
     ],
     practicePlan: [
@@ -116,7 +191,7 @@ export function getReportInsights(interview: InterviewData): {
         day: 'Day 1',
         title: '整理岗位素材',
         tasks: ['提炼 3 个与岗位最相关的项目经历', '为每个项目补充职责、难点和结果', '准备 1 分钟项目介绍'],
-        goal: '让回答从“做过什么”变成“为什么这样做”。',
+        goal: '让回答从"做过什么"变成"为什么这样做"。',
       },
       {
         day: 'Day 2',

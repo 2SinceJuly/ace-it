@@ -67,7 +67,15 @@ export function InterviewAnalysis() {
   const improvement = latestScore - previousScore
   const selectedPosition = recent?.position || interviews[0]?.position || 'Web 前端开发'
   const reportInsights = recent ? getReportInsights(recent) : null
-  const radarData = getDimensionData(latestScore || 68)
+  const radarData = recent
+    ? getDimensionData(recent)
+    : [
+        { subject: '技术', value: 68 },
+        { subject: '知识', value: 72 },
+        { subject: '表达', value: 62 },
+        { subject: '逻辑', value: 66 },
+        { subject: '匹配', value: 69 },
+      ]
   const trendData = [...completed]
     .reverse()
     .slice(-10)

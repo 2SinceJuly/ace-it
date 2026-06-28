@@ -138,6 +138,7 @@ model InterviewSession {
   status     String              @default("draft")
   materials  InterviewMaterial[]
   messages   InterviewMessage[]
+  report     InterviewReport?
   createdAt  DateTime            @default(now())
   updatedAt  DateTime            @updatedAt
 
@@ -164,6 +165,32 @@ model InterviewMessage {
   createdAt   DateTime         @default(now())
 
   @@index([interviewId, createdAt])
+}
+
+/// AI 生成的结构化面试评估，在面试结束时一次性生成并持久化
+model InterviewReport {
+  id          String           @id @default(cuid())
+  interviewId String           @unique
+  interview   InterviewSession @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  /// 总分 0-100
+  score       Int
+  /// 5 维度分数 JSON: [{ subject, value }]
+  dimensions  Json
+  /// 整体复盘摘要（一段话）
+  summary     String           @db.Text
+  /// 亮点列表 JSON: string[]
+  highlights  Json
+  /// 短板列表 JSON: string[]
+  weaknesses  Json
+  /// 改进建议列表 JSON: string[]
+  suggestions Json
+  /// 练习路径 JSON: [{ day, title, tasks, goal }]
+  practicePlan Json
+  /// 推荐练习 JSON: [{ title, meta, reason }]
+  recommendations Json
+  createdAt   DateTime         @default(now())
+
+  @@index([interviewId])
 }
 
 // 监控事件表 - 存储 SDK 上报的埋点数据
