@@ -17,7 +17,7 @@ import { createChatCompletionText, type ChatMessage } from '@/server/services/ai
 const INTERVIEW_MODEL = 'zai-org/GLM-4.6'
 
 /** AI 评估返回的原始结构（字段都可能缺失，需要校验） */
-interface RawEvaluation {
+export interface RawEvaluation {
   score?: unknown
   dimensions?: unknown
   summary?: unknown
@@ -69,19 +69,25 @@ function asNumber(value: unknown, fallback: number): number {
 }
 
 function asStringArray(value: unknown): string[] {
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|；|;|。|\.\s+|、/)
+      .map((item) => item.replace(/^[-*\d.\s]+/, '').trim())
+      .filter(Boolean)
+  }
+
   if (!Array.isArray(value)) return []
+
   return value
     .map((item) => (typeof item === 'string' ? item : String(item ?? '')))
-    .filter((item) => item.trim().length > 0)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function asDimensions(
   value: unknown
 ): Array<{ subject: string; value: number }> {
-  if (!Array.isArray(value)) {
-    // 没有维度数据时用默认维度 + 0 分占位
-    return DEFAULT_DIMENSIONS.map((subject) => ({ subject, value: 0 }))
-  }
+  if (!Array.isArray(value)) return DEFAULT_DIMENSIONS.map((subject) => ({ subject, value: 0 }))
 
   const parsed = value
     .map((item) => {
@@ -93,7 +99,14 @@ function asDimensions(
     })
     .filter((item): item is { subject: string; value: number } => item !== null)
 
-  return parsed.length > 0 ? parsed : DEFAULT_DIMENSIONS.map((subject) => ({ subject, value: 0 }))
+  return DEFAULT_DIMENSIONS.map((subject, index) => {
+    const bySubject = parsed.find((item) => item.subject === subject)
+    const byIndex = parsed[index]
+    return {
+      subject,
+      value: bySubject?.value ?? byIndex?.value ?? 0,
+    }
+  })
 }
 
 function asPracticePlan(
@@ -148,7 +161,8 @@ function buildMaterialText(interview: InterviewContextForEval): string {
 
 function buildEvaluationPrompt(interview: InterviewContextForEval): string {
   return [
-    '请基于以下面试记录生成结构化评估报告，只返回 JSON，不要任何解释文字、Markdown 代码块或前后缀。',
+    '请基于以下面试记录生成结构化评估报告。',
+    '只返回一个 JSON 对象，不要 Markdown，不要代码块，不要解释，不要前后缀。',
     '',
     'JSON 字段说明：',
     '- score: 整体得分，整数 0-100',
@@ -159,6 +173,9 @@ function buildEvaluationPrompt(interview: InterviewContextForEval): string {
     '- suggestions: 改进建议数组，4 条，每条一句话，可执行',
     '- practicePlan: 3 天练习路径数组，每项 { day, title, tasks, goal }，tasks 是字符串数组',
     '- recommendations: 3 条推荐练习数组，每项 { title, meta, reason }',
+    '',
+    '最小 JSON 示例:',
+    '{"score":75,"dimensions":[{"subject":"技术","value":75},{"subject":"知识","value":70},{"subject":"表达","value":78},{"subject":"逻辑","value":72},{"subject":"匹配","value":76}],"summary":"候选人回答覆盖了核心思路，但细节仍需补强。","highlights":["能结合项目经验回答问题"],"weaknesses":["关键技术细节展开不足"],"suggestions":["用 STAR 结构组织项目回答"],"practicePlan":[{"day":"Day 1","title":"复盘基础","tasks":["整理项目难点"],"goal":"形成清晰表达"}],"recommendations":[{"title":"项目复盘练习","meta":"30 分钟","reason":"提升回答结构"}]}',
     '',
     '岗位:', interview.position,
     '难度:', interview.difficulty,
@@ -192,26 +209,53 @@ function buildEvaluationMessages(
 }
 
 /** 从 AI 返回的文本中提取 JSON（处理可能的代码块包裹和前后多余字符） */
-function extractJson(text: string): string {
+export function extractJson(text: string): string {
   const trimmed = text.trim()
-  // 处理 ```json ... ``` 包裹
-  if (trimmed.startsWith('```')) {
-    const lines = trimmed.split('\n')
-    // 移除首行 ``` 和末行 ```
-    const middle = lines.slice(1, lines.length - 1).join('\n')
-    return middle.trim()
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const source = fenced?.[1]?.trim() || trimmed
+  const start = source.indexOf('{')
+  if (start < 0) return source
+
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      escaped = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) continue
+
+    if (char === '{') {
+      depth += 1
+    } else if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        return source.slice(start, index + 1)
+      }
+    }
   }
-  // 找到第一个 { 和最后一个 }，截取中间部分
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  if (start >= 0 && end > start) {
-    return trimmed.slice(start, end + 1)
-  }
-  return trimmed
+
+  return source.slice(start)
 }
 
 /** 校验并补全 AI 返回的评估，确保返回结构完整 */
-function normalizeEvaluation(raw: RawEvaluation, position: string): InterviewEvaluation {
+export function normalizeEvaluation(raw: RawEvaluation, position: string): InterviewEvaluation {
   const score = clamp(Math.round(asNumber(raw.score, 60)))
   const dimensions = asDimensions(raw.dimensions)
   const summary = typeof raw.summary === 'string' && raw.summary.trim()
@@ -258,7 +302,12 @@ export async function generateInterviewEvaluation(
   let parsed: RawEvaluation
   try {
     parsed = JSON.parse(extractJson(rawText)) as RawEvaluation
-  } catch {
+  } catch (error) {
+    console.error('[InterviewEvaluation] Invalid AI evaluation JSON raw text:', {
+      length: rawText.length,
+      preview: rawText.slice(0, 2000),
+      error: error instanceof Error ? error.message : String(error),
+    })
     throw new Error('AI returned invalid JSON for interview evaluation.')
   }
 

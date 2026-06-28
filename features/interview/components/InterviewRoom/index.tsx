@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Bot, FileText, Flag, Loader2, Send, User } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -57,6 +57,8 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const [isStarting, setIsStarting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null)
+  const shouldStickToBottomRef = useRef(true)
 
   useEffect(() => {
     loadInterview(interviewId)
@@ -65,6 +67,26 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
       abortStream()
     }
   }, [interviewId, loadInterview, abortStream])
+
+  const messageScrollKey = useMemo(
+    () => interview?.messages.map((message) => `${message.id}:${message.content.length}`).join('|') || '',
+    [interview?.messages]
+  )
+
+  useLayoutEffect(() => {
+    const viewport = messagesViewportRef.current
+    if (!viewport || !shouldStickToBottomRef.current) return
+
+    viewport.scrollTop = viewport.scrollHeight
+  }, [messageScrollKey, streamingPhase])
+
+  const handleMessagesScroll = () => {
+    const viewport = messagesViewportRef.current
+    if (!viewport) return
+
+    const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+    shouldStickToBottomRef.current = distanceFromBottom < 96
+  }
 
   const handleStartInterview = async () => {
     if (isStarting) return
@@ -106,12 +128,11 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
     try {
       const completed = await completeInterview(interviewId)
-      if (completed) {
-        // 跳转到面试报告页查看本次表现
-        router.push(`/interviews/report/${interviewId}`)
-      } else {
+      if (!completed) {
         setError('结束面试失败，请重试。')
       }
+    } catch (completeError) {
+      setError(completeError instanceof Error ? completeError.message : '结束面试失败，请重试。')
     } finally {
       setIsSubmitting(false)
     }
@@ -151,9 +172,9 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const isStreaming = streamingMessageId !== null
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-[28px] border border-[#e5e9f2] bg-white p-5 shadow-[0_20px_70px_rgba(16,24,40,0.06)] md:p-6">
-        <Button variant="ghost" className="w-fit rounded-2xl text-[#667085]" onClick={() => router.push('/interviews')}>
+    <div className="flex h-full min-h-0 flex-col gap-5">
+      <div className="flex shrink-0 flex-col gap-4 rounded-[24px] border-2 border-[#111318] bg-[#fffdf8] p-5 shadow-[4px_4px_0_rgba(17,19,24,0.10)] md:p-6">
+        <Button variant="ghost" className="w-fit rounded-full text-[#4f4a43] hover:bg-[#f1ebe1] hover:text-[#111318]" onClick={() => router.push('/interviews')}>
           <ArrowLeft className="h-4 w-4" />
           返回
         </Button>
@@ -162,15 +183,15 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
           <div>
             <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">{interview.position}</h2>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Badge className="rounded-full bg-[#eef3ff] text-[#3f66e8] hover:bg-[#eef3ff]">
+              <Badge className="rounded-full border border-[#111318] bg-[#fff7e8] text-[#111318] hover:bg-[#fff7e8]">
                 {difficultyLabels[interview.difficulty] || interview.difficulty}
               </Badge>
               <Badge
                 className={cn(
                   'rounded-full hover:bg-opacity-100',
                   isCompleted
-                    ? 'bg-[#ecfdf3] text-[#027a48] hover:bg-[#ecfdf3]'
-                    : 'bg-[#f8fafc] text-[#667085] hover:bg-[#f8fafc]'
+                    ? 'border border-[#111318] bg-[#e8f5df] text-[#111318] hover:bg-[#e8f5df]'
+                    : 'border border-[#ded8cf] bg-white text-[#4f4a43] hover:bg-white'
                 )}
               >
                 {statusLabels[interview.status] || interview.status}
@@ -181,7 +202,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
             <Button
               onClick={handleStartInterview}
               disabled={isBusy || hasMessages || isCompleted}
-              className="h-12 rounded-2xl bg-[#f27d6a] px-6 hover:bg-[#df6e5d]"
+              className="h-12 rounded-full bg-[#111318] px-6 text-white hover:bg-[#2a2d33]"
             >
               {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
               Start AI interview
@@ -191,7 +212,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                 onClick={handleCompleteInterview}
                 disabled={isBusy || isStreaming}
                 variant="outline"
-                className="h-12 rounded-2xl border-[#f27d6a] px-6 text-[#f27d6a] hover:bg-[#fff0ed] hover:text-[#df6e5d]"
+                className="h-12 rounded-full border-2 border-[#ef745d] bg-[#fffdf8] px-6 text-[#b83f2b] hover:bg-[#fff0eb] hover:text-[#8f2d1e]"
               >
                 {isCompleting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +225,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
             {isCompleted && (
               <Button
                 onClick={() => router.push(`/interviews/report/${interviewId}`)}
-                className="h-12 rounded-2xl bg-[#101828] px-6 hover:bg-[#1d2939]"
+                className="h-12 rounded-full bg-[#111318] px-6 text-white hover:bg-[#2a2d33]"
               >
                 查看报告
               </Button>
@@ -213,22 +234,22 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="flex items-start gap-2 rounded-[18px] border-2 border-[#d92d20] bg-[#fff1ed] px-4 py-3 text-sm text-[#9b241c]">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <Card className="rounded-[28px] border-[#e5e9f2] shadow-[0_20px_70px_rgba(16,24,40,0.05)]">
-            <CardHeader>
+      <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="flex min-h-0 flex-col rounded-[24px] border-2 border-[#111318] bg-[#fffdf8] shadow-none">
+            <CardHeader className="shrink-0 border-b-2 border-[#111318]">
               <CardTitle className="text-xl">面试对话</CardTitle>
               <CardDescription>AI 会根据你的回答继续点评和追问。</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4 md:p-5">
               {!hasMessages ? (
-                <div className="flex min-h-72 items-center justify-center rounded-[24px] border border-dashed border-[#d7dde8] bg-[#fbfcff] px-6 text-center text-sm text-[#667085]">
+                <div className="flex min-h-0 flex-1 items-center justify-center rounded-[22px] border-2 border-dashed border-[#d7d0c6] bg-[#fbfaf8] px-6 text-center text-sm text-[#5d574f]">
                   {isStarting ? (
                     <span className="inline-flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -239,9 +260,14 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                   )}
                 </div>
               ) : (
-                <div className="flex min-h-72 flex-col gap-4">
+                <div
+                  ref={messagesViewportRef}
+                  onScroll={handleMessagesScroll}
+                  className="custom-scrollbar interview-message-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-2"
+                >
                   {interview.messages.map((message) => {
                     const isUser = message.role === 'user'
+                    const isMessageStreaming = message.id === streamingMessageId
 
                     return (
                       <div
@@ -249,19 +275,20 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                         className={cn('flex gap-3', isUser ? 'justify-end' : 'justify-start')}
                       >
                         {!isUser && (
-                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff0ed] text-[#f27d6a]">
+                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#ef745d] bg-[#fff0eb] text-[#b83f2b]">
                             <Bot className="h-4 w-4" />
                           </div>
                         )}
                         <div
                           className={cn(
-                            'max-w-[82%] rounded-[22px] px-4 py-3 text-sm leading-6',
+                            'max-w-[82%] rounded-[20px] px-4 py-3 text-sm leading-6',
+                            isMessageStreaming && 'min-h-24',
                             isUser
-                              ? 'bg-[#eef3ff] text-[#101828]'
-                              : 'border border-[#e5e9f2] bg-white text-[#101828]'
+                              ? 'border-2 border-[#111318] bg-[#111318] text-white'
+                              : 'border-2 border-[#111318] bg-white text-[#111318]'
                           )}
                         >
-                          <div className="mb-1 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <div className={cn('mb-1 flex items-center justify-between gap-3 text-xs', isUser ? 'text-white/68' : 'text-[#6b675f]')}>
                             <span>{isUser ? '你' : '面试官'}</span>
                             <span>{formatMessageTime(message.createdAt)}</span>
                           </div>
@@ -270,11 +297,11 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                           ) : message.content ? (
                             <MessageContent
                               content={message.content}
-                              isStreaming={message.id === streamingMessageId}
+                              isStreaming={isMessageStreaming}
                               disableMediaBlocks
                             />
-                          ) : message.id === streamingMessageId ? (
-                            <span className="inline-flex items-center gap-2 text-muted-foreground">
+                          ) : isMessageStreaming ? (
+                            <span className="inline-flex items-center gap-2 text-[#6b675f]">
                               <Loader2 className="h-4 w-4 animate-spin" />
                               {streamingPhase === 'thinking'
                                 ? '正在思考...'
@@ -283,7 +310,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                           ) : null}
                         </div>
                         {isUser && (
-                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-[#3f66e8]">
+                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#111318] bg-[#fff7e8] text-[#111318]">
                             <User className="h-4 w-4" />
                           </div>
                         )}
@@ -294,7 +321,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
               )}
 
               {hasMessages && !isCompleted && (
-                <form className="space-y-3 border-t pt-4" onSubmit={handleSubmitAnswer}>
+                <form className="shrink-0 space-y-3 border-t-2 border-[#111318] pt-4" onSubmit={handleSubmitAnswer}>
                   <textarea
                     value={answer}
                     onChange={(event) => setAnswer(event.target.value)}
@@ -302,7 +329,8 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                     disabled={isBusy}
                     className={cn(
                       'min-h-28 w-full resize-y rounded-[22px] border border-[#dfe4ee] bg-[#fbfcff] px-4 py-3 text-sm shadow-sm transition-colors',
-                      'placeholder:text-[#98a2b3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f7b3a8]',
+                      'border-2 border-[#111318] bg-white text-[#111318] shadow-none transition-colors',
+                      'placeholder:text-[#8c867c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef745d]',
                       'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                   />
@@ -310,7 +338,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                     <Button
                       type="submit"
                       disabled={isBusy || !answer.trim()}
-                      className="h-11 rounded-2xl bg-[#101828] px-5 hover:bg-[#1d2939]"
+                      className="h-11 rounded-full bg-[#111318] px-5 text-white hover:bg-[#2a2d33]"
                     >
                       {isSubmitting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -324,23 +352,23 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
               )}
 
               {isCompleted && (
-                <div className="rounded-[22px] border border-[#d7dde8] bg-[#fbfcff] px-4 py-3 text-sm text-[#667085]">
-                  本场面试已结束，点击上方&ldquo;查看报告&rdquo;查看完整表现评估。
+                <div className="shrink-0 rounded-[18px] border-2 border-[#ded8cf] bg-[#fbfaf8] px-4 py-3 text-sm text-[#5d574f]">
+                  本场面试已结束，报告不会自动生成。点击上方&ldquo;查看报告&rdquo;后可按需生成 AI 评估报告。
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Card className="rounded-[28px] border-[#e5e9f2]">
-            <CardHeader>
+          <Card className="flex min-h-0 flex-col rounded-[24px] border-2 border-[#111318] bg-[#fffdf8] shadow-none">
+            <CardHeader className="shrink-0 border-b-2 border-[#111318]">
               <CardTitle className="flex items-center gap-2 text-xl">
                 <FileText className="h-5 w-5" />
                 面试材料
               </CardTitle>
               <CardDescription>本场面试使用的简历、项目和 JD 摘要。</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap rounded-[22px] bg-[#f8fafc] p-4 text-sm leading-6 text-[#667085]">
+            <CardContent className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+              <p className="whitespace-pre-wrap rounded-[20px] border border-[#ded8cf] bg-white p-4 text-sm leading-6 text-[#4f4a43]">
                 {summarizeMaterial(material)}
               </p>
             </CardContent>

@@ -16,6 +16,8 @@ export type AuditAction =
   | 'interview.start'
   | 'interview.answer'
   | 'interview.complete'
+  | 'interview.delete'
+  | 'interview.report.generate'
   | 'auth.login'
   | 'auth.logout'
   | 'auth.link_account'

@@ -308,28 +308,6 @@ export async function completeInterview(
       return { success: false, error: 'Interview not found.' }
     }
 
-    // 幂等：已完成且已有报告，直接返回
-    if (interview.status === 'completed' && interview.report) {
-      return { success: true, data: serializeInterview(interview) }
-    }
-
-    // 1. 生成 AI 评估（仅在已回答至少 1 个问题时才生成，否则跳过）
-    const hasUserAnswers = interview.messages.some((message) => message.role === 'user')
-    if (hasUserAnswers && !interview.report) {
-      const apiKey = await getApiKey(userId)
-      const evaluation = await generateInterviewEvaluation(apiKey, {
-        position: interview.position,
-        difficulty: interview.difficulty,
-        materials: interview.materials.map((material) => ({ content: material.content })),
-        messages: interview.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-      })
-      await InterviewRepository.saveReport(interview.id, evaluation)
-    }
-
-    // 2. 更新状态为已完成
     const updatedInterview = await InterviewRepository.markCompleted(interview.id, userId)
 
     await audit({
@@ -342,5 +320,78 @@ export async function completeInterview(
   } catch (error) {
     console.error('[Action] completeInterview failed:', error)
     return { success: false, error: serializeActionError(error, 'Failed to complete interview.') }
+  }
+}
+
+export async function generateInterviewReport(
+  interviewId: string
+): Promise<ActionResult<InterviewData>> {
+  try {
+    const userId = await getCurrentUserId()
+    const interview = await InterviewRepository.findById(interviewId, userId)
+
+    if (!interview) {
+      return { success: false, error: 'Interview not found.' }
+    }
+
+    if (interview.report) {
+      return { success: true, data: serializeInterview(interview) }
+    }
+
+    const hasUserAnswers = interview.messages.some((message) => message.role === 'user')
+    if (!hasUserAnswers) {
+      return { success: false, error: '至少完成一轮回答后才能生成评估报告。' }
+    }
+
+    const apiKey = await getApiKey(userId)
+    const evaluation = await generateInterviewEvaluation(apiKey, {
+      position: interview.position,
+      difficulty: interview.difficulty,
+      materials: interview.materials.map((material) => ({ content: material.content })),
+      messages: interview.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    })
+
+    await InterviewRepository.saveReport(interview.id, evaluation)
+    const updatedInterview = await InterviewRepository.findById(interview.id, userId)
+
+    if (!updatedInterview) {
+      return { success: false, error: 'Interview not found after report generation.' }
+    }
+
+    await audit({
+      userId,
+      action: 'interview.report.generate',
+      resourceId: interview.id,
+    })
+
+    return { success: true, data: serializeInterview(updatedInterview) }
+  } catch (error) {
+    console.error('[Action] generateInterviewReport failed:', error)
+    return { success: false, error: serializeActionError(error, 'Failed to generate interview report.') }
+  }
+}
+
+export async function deleteInterview(interviewId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const userId = await getCurrentUserId()
+    const deleted = await InterviewRepository.deleteById(interviewId, userId)
+
+    if (!deleted) {
+      return { success: false, error: 'Interview not found.' }
+    }
+
+    await audit({
+      userId,
+      action: 'interview.delete',
+      resourceId: interviewId,
+    })
+
+    return { success: true, data: { id: interviewId } }
+  } catch (error) {
+    console.error('[Action] deleteInterview failed:', error)
+    return { success: false, error: serializeActionError(error, 'Failed to delete interview.') }
   }
 }

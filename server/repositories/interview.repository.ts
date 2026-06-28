@@ -122,6 +122,14 @@ export const InterviewRepository = {
     })
   },
 
+  async deleteById(id: string, userId: string) {
+    const result = await prisma.interviewSession.deleteMany({
+      where: { id, userId },
+    })
+
+    return result.count > 0
+  },
+
   /**
    * 把 AI 生成的结构化评估写入 InterviewReport 表
    * upsert 保证幂等：重复调用不会报错，会覆盖旧报告

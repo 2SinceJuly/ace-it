@@ -1,15 +1,17 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
+  AlertCircle,
   ArrowLeft,
   BarChart3,
   Brain,
   CheckCircle2,
   Clock3,
   FileText,
+  Loader2,
   Sparkles,
   Target,
 } from 'lucide-react'
@@ -27,7 +29,6 @@ import {
   getDimensionData,
   getInterviewDurationMinutes,
   getInterviewScore,
-  getLatestAssistantText,
   getMaterialPreview,
   getQuestionCount,
   getReportInsights,
@@ -41,39 +42,96 @@ export function InterviewReport({ interviewId }: InterviewReportProps) {
   const interview = useInterviewStore((state) => state.currentInterview)
   const loading = useInterviewStore((state) => state.currentInterviewLoading)
   const loadInterview = useInterviewStore((state) => state.loadInterview)
+  const generateInterviewReport = useInterviewStore((state) => state.generateInterviewReport)
+  const isGeneratingReport = useInterviewStore((state) => state.isGeneratingReport)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadInterview(interviewId)
   }, [interviewId, loadInterview])
 
   const report = useMemo(() => {
-    if (!interview) return null
+    if (!interview?.report) return null
 
     const score = getInterviewScore(interview)
     const dimensions = getDimensionData(interview)
     const insights = getReportInsights(interview)
-    const latestAssistantText = getLatestAssistantText(interview)
-
-    // 优先用 AI 生成的真实摘要，没有时回退到最近一条 AI 回答
-    const summary = interview.report?.summary
-      ? interview.report.summary
-      : latestAssistantText.length > 0
-        ? latestAssistantText.slice(0, 160)
-        : `本场面试围绕 ${interview.position} 展开，后续完成更多问答后可以生成更完整的复盘摘要。`
 
     return {
       score,
       dimensions,
       insights,
-      latestAssistantText,
-      summary,
+      summary: interview.report.summary,
     }
   }, [interview])
 
-  if (loading || !interview || !report) {
+  const handleGenerateReport = async () => {
+    if (isGeneratingReport) return
+
+    setError(null)
+
+    try {
+      await generateInterviewReport(interviewId)
+    } catch (generateError) {
+      setError(generateError instanceof Error ? generateError.message : '生成报告失败，请重试。')
+    }
+  }
+
+  if (loading || !interview) {
     return (
       <div className="rounded-[26px] border border-[#e5e9f2] bg-white p-10 text-center text-sm text-[#667085]">
         正在加载面试报告...
+      </div>
+    )
+  }
+
+  if (!report) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-end">
+          <Button asChild variant="outline" className="h-12 rounded-2xl border-[#e5e9f2] bg-white">
+            <Link href="/interviews/analysis">
+              <ArrowLeft className="h-4 w-4" />
+              返回我的面试
+            </Link>
+          </Button>
+        </div>
+
+        <section className="rounded-[28px] border border-[#e5e9f2] bg-white p-8 text-center shadow-[0_20px_70px_rgba(16,24,40,0.05)] md:p-12">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#fff0ed] text-[#f27d6a]">
+            {isGeneratingReport ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <Sparkles className="h-6 w-6" />
+            )}
+          </div>
+          <h2 className="mt-6 text-2xl font-semibold">{interview.position}</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#667085]">
+            本场面试已结束，但还没有生成 AI 评估报告。点击下方按钮后会调用 AI 分析你的面试记录，并保存为可重复查看的报告。
+          </p>
+
+          {error && (
+            <div className="mx-auto mt-6 flex max-w-xl items-start gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="mt-8 flex justify-center">
+            <Button
+              onClick={handleGenerateReport}
+              disabled={isGeneratingReport}
+              className="h-12 rounded-2xl bg-[#101828] px-6 hover:bg-[#1d2939]"
+            >
+              {isGeneratingReport ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {isGeneratingReport ? '正在生成报告...' : '生成 AI 评估报告'}
+            </Button>
+          </div>
+        </section>
       </div>
     )
   }

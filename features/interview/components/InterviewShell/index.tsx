@@ -26,12 +26,14 @@ export function InterviewShell({ children, title, subtitle }: InterviewShellProp
   }, [hasInitiallyLoaded, loadInterviews])
 
   return (
-    <div className="flex min-h-[100dvh] bg-[#f4f1ed] text-[#111318]">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#f4f1ed] text-[#111318]">
       <SideNav userName={userName} userEmail={userEmail} />
 
-      <main className="min-w-0 flex-1">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header title={title} subtitle={subtitle} userName={userName} />
-        <div className="mx-auto max-w-[1500px] px-4 py-6 md:px-8 lg:px-10">{children}</div>
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8 lg:px-10">
+          <div className="mx-auto h-full max-w-[1500px]">{children}</div>
+        </div>
       </main>
     </div>
   )

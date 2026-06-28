@@ -4,6 +4,8 @@ import { create } from 'zustand'
 import {
   completeInterview as completeInterviewAction,
   createInterview as createInterviewAction,
+  deleteInterview as deleteInterviewAction,
+  generateInterviewReport as generateInterviewReportAction,
   getInterviewById,
   getInterviews,
   startInterview as startInterviewAction,
@@ -25,6 +27,7 @@ interface InterviewState {
   streamingPhase: 'idle' | 'thinking' | 'answering'
   abortController: AbortController | null
   isCompleting: boolean
+  isGeneratingReport: boolean
   loadInterviews: () => Promise<void>
   loadInterview: (id: string) => Promise<InterviewData | null>
   createInterview: (input: CreateInterviewData) => Promise<string>
@@ -34,6 +37,8 @@ interface InterviewState {
   submitInterviewAnswerStream: (id: string, content: string) => Promise<void>
   abortStream: () => void
   completeInterview: (id: string) => Promise<InterviewData | null>
+  generateInterviewReport: (id: string) => Promise<InterviewData | null>
+  deleteInterview: (id: string) => Promise<boolean>
   reset: () => void
 }
 
@@ -47,6 +52,7 @@ const initialState = {
   streamingPhase: 'idle' as const,
   abortController: null,
   isCompleting: false,
+  isGeneratingReport: false,
 }
 
 function mergeInterview(interviews: InterviewData[], updatedInterview: InterviewData) {
@@ -356,10 +362,47 @@ export const useInterviewStore = create<InterviewState>((set) => ({
     } catch (error) {
       console.error('[InterviewStore] completeInterview failed:', error)
       set({ isCompleting: false })
-      return null
+      throw error
     } finally {
       set({ isCompleting: false })
     }
+  },
+
+  generateInterviewReport: async (id) => {
+    set({ isGeneratingReport: true })
+    try {
+      const result = await generateInterviewReportAction(id)
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to generate interview report.')
+      }
+
+      set((state) => ({
+        currentInterview: result.data!,
+        interviews: mergeInterview(state.interviews, result.data!),
+      }))
+
+      return result.data
+    } catch (error) {
+      console.error('[InterviewStore] generateInterviewReport failed:', error)
+      throw error
+    } finally {
+      set({ isGeneratingReport: false })
+    }
+  },
+
+  deleteInterview: async (id) => {
+    const result = await deleteInterviewAction(id)
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to delete interview.')
+    }
+
+    set((state) => ({
+      interviews: state.interviews.filter((interview) => interview.id !== id),
+      currentInterview:
+        state.currentInterview?.id === id ? null : state.currentInterview,
+    }))
+
+    return true
   },
 
   reset: () => set(initialState),

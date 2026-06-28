@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:interview": "tsx tests/interview-evaluation.test.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean:logs": "tsx scripts/remove-console-logs.ts",
