@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/interviews', request.url))
   }
 
-  if (pathname.startsWith('/chat') && !isLoggedIn) {
+  if ((pathname.startsWith('/chat') || pathname.startsWith('/interviews')) && !isLoggedIn) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
@@ -32,5 +32,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/chat/:path*'],
+  matcher: ['/', '/chat/:path*', '/interviews/:path*'],
 }

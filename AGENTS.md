@@ -1,4 +1,4 @@
-# Tide-AI Agent Notes
+# Ace It Agent Notes
 
 这个文件是给 Claude Code、Codex 等 AI 编程助手看的项目说明。
 
@@ -10,7 +10,7 @@
 
 ## 项目当前方向
 
-当前目标是把 Tide-AI 从通用聊天应用，逐步改成一个 AI 模拟面试 MVP。
+当前目标是把 Ace It 从通用聊天应用，逐步改成一个 AI 模拟面试 MVP。
 
 阶段 2 的目标闭环：
 
@@ -49,4 +49,4 @@ tide-ai-postgres
 - 阶段 2，提交 1：持久化面试消息，已完成并验证。
 - 数据库已成功应用 `20260628100000_add_interview_messages`。
 - `npm run build` 已通过。
-- 阶段 2，提交 2：AI 面试出题和回答流程，还未开始。
+- 阶段 2，提交 2：AI 面试出题和回答流程，已完成并 build 通过（未做流式，未做 markdown 渲染）。

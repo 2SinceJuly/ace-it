@@ -20,8 +20,6 @@ const eslintConfig = [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      // eslint-plugin-react-hooks 5.2.0 crashes on ESLint 9.39 for this rule.
-      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ]
