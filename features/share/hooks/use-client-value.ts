@@ -14,7 +14,7 @@ export function useClientValue<T>(factory: () => T, fallback: T): T {
   
   useEffect(() => {
     setValue(factory())
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
   
   return value
 }

@@ -1,6 +1,6 @@
 # Ace It
 
-Ace It is an AI mock interview assistant built from an existing streaming chat foundation. The current MVP supports creating real interview sessions from a target position, difficulty, and resume/JD/project material, then entering a dedicated interview room.
+Ace It is an AI mock interview assistant built from an existing streaming chat foundation. The current MVP supports creating interview sessions from a target position, difficulty, and resume/JD/project material, then entering a dedicated interview room.
 
 ## Current MVP
 

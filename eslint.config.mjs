@@ -12,18 +12,16 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends('next/core-web-vitals', 'next/typescript', 'prettier'),
   {
-    ignores: [
-      '.next/**',
-      'out/**',
-      'build/**',
-      'next-env.d.ts',
-      'types/next-auth.d.ts',
-    ],
+    ignores: ['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'types/next-auth.d.ts'],
   },
   {
     rules: {
-      // 允许以 _ 开头的未使用变量
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      // eslint-plugin-react-hooks 5.2.0 crashes on ESLint 9.39 for this rule.
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ]

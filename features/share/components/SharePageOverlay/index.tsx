@@ -46,7 +46,7 @@ export function SharePageOverlay({ conversationId, delayMs = 5000 }: SharePageOv
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
   
   // 点击触发（仅在 Dialog 关闭且不在冷却期时）
   useEffect(() => {
@@ -60,7 +60,7 @@ export function SharePageOverlay({ conversationId, delayMs = 5000 }: SharePageOv
     
     document.addEventListener('click', handleClick)
     return () => document.removeEventListener('click', handleClick)
-  }, [showLogin]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showLogin])
   
   // 关闭后重新启动定时器，并设置冷却期
   const handleOpenChange = (open: boolean) => {

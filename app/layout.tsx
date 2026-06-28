@@ -7,8 +7,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { GeoChecker } from '@/components/GeoChecker'
 
 export const metadata: Metadata = {
-  title: 'Tide AI',
-  description: 'AI 智能对话助手 - 基于硅基流动的智能聊天应用',
+  title: 'Ace It',
+  description: 'AI mock interview assistant for practicing role-specific interviews.',
   icons: {
     icon: '/icon.svg',
   },
