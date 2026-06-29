@@ -231,7 +231,6 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       })
 
       buffer.forceFlush()
-      await useInterviewStore.getState().loadInterview(id)
     } catch (error) {
       buffer.forceFlush()
       if (!(error instanceof Error && error.name === 'AbortError')) {
@@ -309,7 +308,6 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       })
 
       buffer.forceFlush()
-      await useInterviewStore.getState().loadInterview(id)
     } catch (error) {
       buffer.forceFlush()
       if (!(error instanceof Error && error.name === 'AbortError')) {

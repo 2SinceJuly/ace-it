@@ -208,6 +208,29 @@ function buildEvaluationMessages(
   ]
 }
 
+function buildJsonRepairMessages(rawText: string): ChatMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        '你是 JSON 修复器。',
+        '把用户提供的文本转换成一个合法 JSON 对象。',
+        '只输出 JSON 对象本身，不要 Markdown，不要代码块，不要解释。',
+        '必须保留字段含义，无法确定的字段用空数组、空字符串或 60 分兜底。',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: [
+        '请把下面内容修复为合法 JSON 对象，字段必须包含：',
+        'score, dimensions, summary, highlights, weaknesses, suggestions, practicePlan, recommendations。',
+        '',
+        rawText,
+      ].join('\n'),
+    },
+  ]
+}
+
 /** 从 AI 返回的文本中提取 JSON（处理可能的代码块包裹和前后多余字符） */
 export function extractJson(text: string): string {
   const trimmed = text.trim()
@@ -252,6 +275,122 @@ export function extractJson(text: string): string {
   }
 
   return source.slice(start)
+}
+
+function stripJsonComments(text: string): string {
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    const next = text[index + 1]
+
+    if (escaped) {
+      result += char
+      escaped = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      result += char
+      escaped = true
+      continue
+    }
+
+    if (char === '"') {
+      result += char
+      inString = !inString
+      continue
+    }
+
+    if (!inString && char === '/' && next === '/') {
+      while (index < text.length && text[index] !== '\n') {
+        index += 1
+      }
+      result += '\n'
+      continue
+    }
+
+    if (!inString && char === '/' && next === '*') {
+      index += 2
+      while (index < text.length && !(text[index] === '*' && text[index + 1] === '/')) {
+        index += 1
+      }
+      index += 1
+      continue
+    }
+
+    result += char
+  }
+
+  return result
+}
+
+function removeTrailingCommas(text: string): string {
+  let result = ''
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+
+    if (escaped) {
+      result += char
+      escaped = false
+      continue
+    }
+
+    if (char === '\\' && inString) {
+      result += char
+      escaped = true
+      continue
+    }
+
+    if (char === '"') {
+      result += char
+      inString = !inString
+      continue
+    }
+
+    if (!inString && char === ',') {
+      let lookahead = index + 1
+      while (/\s/.test(text[lookahead] || '')) {
+        lookahead += 1
+      }
+
+      if (text[lookahead] === '}' || text[lookahead] === ']') {
+        continue
+      }
+    }
+
+    result += char
+  }
+
+  return result
+}
+
+function normalizeJsonText(text: string): string {
+  return removeTrailingCommas(stripJsonComments(extractJson(text).replace(/^\uFEFF/, '').trim()))
+}
+
+export function parseEvaluationJson(text: string): RawEvaluation {
+  const candidates = Array.from(new Set([
+    extractJson(text),
+    normalizeJsonText(text),
+  ]))
+
+  let lastError: unknown
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate) as RawEvaluation
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Invalid evaluation JSON.')
 }
 
 /** 校验并补全 AI 返回的评估，确保返回结构完整 */
@@ -301,14 +440,30 @@ export async function generateInterviewEvaluation(
 
   let parsed: RawEvaluation
   try {
-    parsed = JSON.parse(extractJson(rawText)) as RawEvaluation
-  } catch (error) {
-    console.error('[InterviewEvaluation] Invalid AI evaluation JSON raw text:', {
+    parsed = parseEvaluationJson(rawText)
+  } catch (firstError) {
+    console.warn('[InterviewEvaluation] Primary JSON parse failed, requesting repair:', {
       length: rawText.length,
       preview: rawText.slice(0, 2000),
-      error: error instanceof Error ? error.message : String(error),
+      error: firstError instanceof Error ? firstError.message : String(firstError),
     })
-    throw new Error('AI returned invalid JSON for interview evaluation.')
+
+    try {
+      const repairedText = await createChatCompletionText(apiKey, {
+        model: INTERVIEW_MODEL,
+        messages: buildJsonRepairMessages(rawText),
+        enableThinking: false,
+      })
+
+      parsed = parseEvaluationJson(repairedText)
+    } catch (repairError) {
+      console.error('[InterviewEvaluation] Invalid AI evaluation JSON after repair:', {
+        length: rawText.length,
+        preview: rawText.slice(0, 2000),
+        error: repairError instanceof Error ? repairError.message : String(repairError),
+      })
+      throw new Error('AI returned invalid JSON for interview evaluation.')
+    }
   }
 
   return normalizeEvaluation(parsed, interview.position)

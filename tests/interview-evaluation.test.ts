@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
-import { extractJson, normalizeEvaluation } from '../server/services/interview/interview-evaluation.service'
+import {
+  extractJson,
+  normalizeEvaluation,
+  parseEvaluationJson,
+} from '../server/services/interview/interview-evaluation.service'
 
 const fencedJson = `\`\`\`json
 {
@@ -39,6 +43,29 @@ assert.deepEqual(JSON.parse(extractJson(withExtraObject)), {
   weaknesses: [],
   suggestions: [],
 })
+
+const withTrailingCommas = `\`\`\`json
+{
+  "score": 88,
+  "summary": "候选人回答完整。",
+  "highlights": ["能结合项目"],
+  "weaknesses": ["细节不足"],
+  "suggestions": ["补充指标"],
+}
+\`\`\``
+
+assert.equal(parseEvaluationJson(withTrailingCommas).score, 88)
+
+const withComments = `{
+  // 模型有时会加解释性注释
+  "score": 73,
+  "summary": "候选人需要加强结构化表达。",
+  "highlights": [],
+  "weaknesses": [],
+  "suggestions": []
+}`
+
+assert.equal(parseEvaluationJson(withComments).score, 73)
 
 const normalized = normalizeEvaluation(JSON.parse(extractJson(fencedJson)), '前端开发')
 assert.equal(normalized.score, 82)

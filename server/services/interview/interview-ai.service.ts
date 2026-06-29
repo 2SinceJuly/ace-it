@@ -4,6 +4,7 @@ import {
   type ChatMessage,
   type SiliconFlowResponse,
 } from '@/server/services/ai'
+import { getModelById } from '@/features/chat/constants/models'
 
 const INTERVIEW_MODEL = 'zai-org/GLM-4.6'
 
@@ -52,9 +53,26 @@ function buildHistoryText(messages: InterviewMessage[] = []): string {
     .join('\n\n')
 }
 
-async function generateInterviewText(apiKey: string, messages: ChatMessage[]): Promise<string> {
+function getConfiguredModel(interview: InterviewContext): string {
+  for (const material of interview.materials) {
+    const match = material.content.match(/^Model ID:\s*(.+)$/m)
+    const candidate = match?.[1]?.trim()
+
+    if (candidate && getModelById(candidate)) {
+      return candidate
+    }
+  }
+
+  return INTERVIEW_MODEL
+}
+
+async function generateInterviewText(
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[]
+): Promise<string> {
   const text = await createChatCompletionText(apiKey, {
-    model: INTERVIEW_MODEL,
+    model,
     messages,
     enableThinking: false,
   })
@@ -68,10 +86,11 @@ async function generateInterviewText(apiKey: string, messages: ChatMessage[]): P
 
 async function generateInterviewStream(
   apiKey: string,
+  model: string,
   messages: ChatMessage[]
 ): Promise<SiliconFlowResponse> {
   return createChatCompletion(apiKey, {
-    model: INTERVIEW_MODEL,
+    model,
     messages,
     enableThinking: false,
   })
@@ -130,14 +149,14 @@ export async function generateFirstQuestion(
   apiKey: string,
   interview: InterviewContext
 ): Promise<string> {
-  return generateInterviewText(apiKey, buildFirstQuestionMessages(interview))
+  return generateInterviewText(apiKey, getConfiguredModel(interview), buildFirstQuestionMessages(interview))
 }
 
 export async function generateFirstQuestionStream(
   apiKey: string,
   interview: InterviewContext
 ): Promise<SiliconFlowResponse> {
-  return generateInterviewStream(apiKey, buildFirstQuestionMessages(interview))
+  return generateInterviewStream(apiKey, getConfiguredModel(interview), buildFirstQuestionMessages(interview))
 }
 
 export async function generateFeedbackAndFollowUp(
@@ -145,7 +164,7 @@ export async function generateFeedbackAndFollowUp(
   interview: InterviewContext,
   answer: string
 ): Promise<string> {
-  return generateInterviewText(apiKey, buildFeedbackMessages(interview, answer))
+  return generateInterviewText(apiKey, getConfiguredModel(interview), buildFeedbackMessages(interview, answer))
 }
 
 export async function generateFeedbackAndFollowUpStream(
@@ -153,5 +172,5 @@ export async function generateFeedbackAndFollowUpStream(
   interview: InterviewContext,
   answer: string
 ): Promise<SiliconFlowResponse> {
-  return generateInterviewStream(apiKey, buildFeedbackMessages(interview, answer))
+  return generateInterviewStream(apiKey, getConfiguredModel(interview), buildFeedbackMessages(interview, answer))
 }

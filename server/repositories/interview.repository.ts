@@ -5,6 +5,7 @@ export interface CreateInterviewInput {
   position: string
   difficulty: string
   materialContent: string
+  materialFileIds?: string[]
 }
 
 const interviewInclude = {
@@ -19,26 +20,60 @@ const interviewInclude = {
 
 export const InterviewRepository = {
   async create(userId: string, input: CreateInterviewInput) {
-    return prisma.interviewSession.create({
-      data: {
-        userId,
-        position: input.position,
-        difficulty: input.difficulty,
-        status: 'draft',
-        materials: {
-          create: {
-            content: input.materialContent,
+    return prisma.$transaction(async (tx) => {
+      const materialFileIds = Array.from(new Set(input.materialFileIds || []))
+
+      if (materialFileIds.length > 0) {
+        const ownedFiles = await tx.interviewMaterialFile.findMany({
+          where: {
+            id: { in: materialFileIds },
+            userId,
+            interviewId: null,
+          },
+          select: { id: true },
+        })
+
+        if (ownedFiles.length !== materialFileIds.length) {
+          throw new Error('One or more material files are invalid or already bound.')
+        }
+      }
+
+      const interview = await tx.interviewSession.create({
+        data: {
+          userId,
+          position: input.position,
+          difficulty: input.difficulty,
+          status: 'draft',
+          materials: {
+            create: {
+              content: input.materialContent,
+            },
           },
         },
-      },
-      include: {
-        materials: {
-          orderBy: { createdAt: 'asc' },
+        include: {
+          materials: {
+            orderBy: { createdAt: 'asc' },
+          },
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
         },
-        messages: {
-          orderBy: { createdAt: 'asc' },
-        },
-      },
+      })
+
+      if (materialFileIds.length > 0) {
+        await tx.interviewMaterialFile.updateMany({
+          where: {
+            id: { in: materialFileIds },
+            userId,
+            interviewId: null,
+          },
+          data: {
+            interviewId: interview.id,
+          },
+        })
+      }
+
+      return interview
     })
   },
 

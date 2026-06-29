@@ -49,12 +49,12 @@ export function HistoryList() {
   }
 
   return (
-    <section className="mt-8 min-h-0 flex-1">
+    <section className="mt-5 flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-2">
         <div className="text-xs font-medium uppercase text-[#8c867c]">之前面试</div>
         <Clock3 className="h-4 w-4 text-[#8c867c]" />
       </div>
-      <div className="custom-scrollbar mt-3 max-h-[34dvh] space-y-2 overflow-y-auto pr-1">
+      <div className="custom-scrollbar mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         {interviews.slice(0, 8).map((interview) => {
           const active = pathname === `/interviews/${interview.id}`
           const isDeleting = deletingId === interview.id

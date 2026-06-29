@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   FilePlus2,
   LogOut,
-  MessageSquareText,
   Settings,
   Sparkles,
   UserRound,
@@ -68,7 +67,7 @@ export function SideNav({ userName, userEmail }: SideNavProps) {
   void loadInterviews
 
   return (
-    <aside className="hidden w-[316px] shrink-0 flex-col border-r border-[#ded8cf] bg-[#fbfaf8]/95 px-5 py-5 lg:flex">
+    <aside className="hidden min-h-0 w-[316px] shrink-0 flex-col border-r border-[#ded8cf] bg-[#fbfaf8]/95 px-5 py-5 lg:flex">
       <SideNavHeader />
       <SideNavWelcomeCard userName={userName} />
       <SideNavMenu pathname={pathname} />
@@ -111,7 +110,7 @@ function SideNavWelcomeCard({ userName }: { userName: string }) {
 
 function SideNavMenu({ pathname }: { pathname: string }) {
   return (
-    <nav className="mt-8 space-y-2">
+    <nav className="mt-7 space-y-2">
       <div className="px-2 text-xs font-medium uppercase text-[#8c867c]">Menu</div>
       {navItems.map((item) => {
         const Icon = item.icon
@@ -138,23 +137,13 @@ function SideNavMenu({ pathname }: { pathname: string }) {
           </Link>
         )
       })}
-      <Link
-        href="/chat"
-        className="flex items-center gap-3 rounded-[18px] border border-transparent px-4 py-3 text-sm text-[#6b675f] transition hover:border-[#ded8cf] hover:bg-white hover:text-[#111318]"
-      >
-        <MessageSquareText className="h-5 w-5" />
-        <span className="flex-1">
-          <span className="block font-medium">通用聊天</span>
-          <span className="block text-xs text-[#8c867c]">保留原能力</span>
-        </span>
-      </Link>
     </nav>
   )
 }
 
 function UserPanel({ userName, userEmail }: { userName: string; userEmail: string }) {
   return (
-    <div className="mt-6 space-y-4 border-t border-[#ded8cf] pt-5">
+    <div className="mt-5 shrink-0 space-y-4 border-t border-[#ded8cf] pt-5">
       <div className="flex items-center gap-3 rounded-[18px] border border-[#e4ded5] bg-white p-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f4f1ed] text-[#6b675f]">
           <UserRound className="h-5 w-5" />

@@ -267,20 +267,20 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #eee8df;
+  background: #f3efe8;
   border-radius: 999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #ef745d;
+  background: #cfc7bc;
   border-radius: 999px;
-  border: 2px solid #eee8df;
+  border: 2px solid #f3efe8;
   background-clip: padding-box;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #111318;
-  border: 2px solid #eee8df;
+  background: #9b9287;
+  border: 2px solid #f3efe8;
   background-clip: padding-box;
 }
 
@@ -290,14 +290,14 @@
 }
 
 .custom-scrollbar-auto:hover::-webkit-scrollbar-thumb {
-  background: #ef745d;
+  background: #cfc7bc;
   border-radius: 999px;
 }
 
 /* Firefox */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #ef745d #eee8df;
+  scrollbar-color: #cfc7bc #f3efe8;
 }
 
 .custom-scrollbar-auto {
@@ -306,7 +306,7 @@
 }
 
 .custom-scrollbar-auto:hover {
-  scrollbar-color: #ef745d #eee8df;
+  scrollbar-color: #cfc7bc #f3efe8;
 }
 
 .interview-message-scroll {

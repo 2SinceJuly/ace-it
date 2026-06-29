@@ -54,6 +54,7 @@ export interface CreateInterviewData {
   position: string
   difficulty: string
   materialContent: string
+  materialFileIds?: string[]
 }
 
 export interface ActionResult<T = void> {
@@ -141,6 +142,9 @@ function normalizeCreateInput(input: CreateInterviewData): CreateInterviewData {
   const position = input.position.trim()
   const materialContent = input.materialContent.trim()
   const difficulty = DIFFICULTIES.has(input.difficulty) ? input.difficulty : 'medium'
+  const materialFileIds = Array.from(
+    new Set((input.materialFileIds || []).map((id) => id.trim()).filter(Boolean))
+  )
 
   if (!position) {
     throw new Error('Position is required.')
@@ -150,7 +154,7 @@ function normalizeCreateInput(input: CreateInterviewData): CreateInterviewData {
     throw new Error('Interview material is required.')
   }
 
-  return { position, difficulty, materialContent }
+  return { position, difficulty, materialContent, materialFileIds }
 }
 
 async function getApiKey(userId: string): Promise<string> {
