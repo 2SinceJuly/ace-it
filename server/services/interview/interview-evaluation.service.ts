@@ -13,6 +13,10 @@
  */
 
 import { createChatCompletionText, type ChatMessage } from '@/server/services/ai'
+import {
+  INTERVIEW_EVALUATOR_SYSTEM_PROMPT,
+  INTERVIEW_EVALUATOR_USER_RULES,
+} from './prompts/interview-evaluator.prompt'
 
 const INTERVIEW_MODEL = 'zai-org/GLM-4.6'
 
@@ -164,15 +168,7 @@ function buildEvaluationPrompt(interview: InterviewContextForEval): string {
     '请基于以下面试记录生成结构化评估报告。',
     '只返回一个 JSON 对象，不要 Markdown，不要代码块，不要解释，不要前后缀。',
     '',
-    'JSON 字段说明：',
-    '- score: 整体得分，整数 0-100',
-    '- dimensions: 5 维度雷达图数据，数组，每项 { subject, value }，subject 从 ["技术", "知识", "表达", "逻辑", "匹配"] 中选，value 为 0-100 整数',
-    '- summary: 一段话复盘摘要，100-200 字，结合候选人具体回答内容',
-    '- highlights: 亮点数组，3 条，每条一句话，必须引用候选人具体回答内容',
-    '- weaknesses: 短板数组，3 条，每条一句话，必须引用候选人具体回答内容',
-    '- suggestions: 改进建议数组，4 条，每条一句话，可执行',
-    '- practicePlan: 3 天练习路径数组，每项 { day, title, tasks, goal }，tasks 是字符串数组',
-    '- recommendations: 3 条推荐练习数组，每项 { title, meta, reason }',
+    INTERVIEW_EVALUATOR_USER_RULES,
     '',
     '最小 JSON 示例:',
     '{"score":75,"dimensions":[{"subject":"技术","value":75},{"subject":"知识","value":70},{"subject":"表达","value":78},{"subject":"逻辑","value":72},{"subject":"匹配","value":76}],"summary":"候选人回答覆盖了核心思路，但细节仍需补强。","highlights":["能结合项目经验回答问题"],"weaknesses":["关键技术细节展开不足"],"suggestions":["用 STAR 结构组织项目回答"],"practicePlan":[{"day":"Day 1","title":"复盘基础","tasks":["整理项目难点"],"goal":"形成清晰表达"}],"recommendations":[{"title":"项目复盘练习","meta":"30 分钟","reason":"提升回答结构"}]}',
@@ -194,12 +190,7 @@ function buildEvaluationMessages(
   return [
     {
       role: 'system',
-      content: [
-        '你是一名资深技术面试官，正在为候选人写模拟面试复盘报告。',
-        '评分必须严格、客观，结合候选人实际回答内容，不要泛泛而谈。',
-        '所有字段必须填写，缺失字段用空字符串或空数组占位。',
-        '输出必须是合法 JSON，不能包含注释、代码块标记或解释文字。',
-      ].join('\n'),
+      content: INTERVIEW_EVALUATOR_SYSTEM_PROMPT,
     },
     {
       role: 'user',

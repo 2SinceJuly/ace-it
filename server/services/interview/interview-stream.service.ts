@@ -10,6 +10,8 @@ export type InterviewStreamAction = 'start' | 'answer'
 export interface InterviewStreamRequest {
   action: InterviewStreamAction
   content?: string
+  enableThinking?: boolean
+  enableWebSearch?: boolean
 }
 
 export interface InterviewStreamResponse {
@@ -43,7 +45,10 @@ export async function handleInterviewStreamRequest(
       throw new Error('Interview has already started.')
     }
 
-    const { reader } = await generateFirstQuestionStream(apiKey, interview)
+    const { reader } = await generateFirstQuestionStream(apiKey, interview, {
+      enableThinking: request.enableThinking,
+      enableWebSearch: request.enableWebSearch,
+    })
     const sessionId = Date.now().toString()
 
     return {
@@ -60,7 +65,10 @@ export async function handleInterviewStreamRequest(
     }
 
     await InterviewRepository.addMessage(interview.id, 'user', answer)
-    const { reader } = await generateFeedbackAndFollowUpStream(apiKey, interview, answer)
+    const { reader } = await generateFeedbackAndFollowUpStream(apiKey, interview, answer, {
+      enableThinking: request.enableThinking,
+      enableWebSearch: request.enableWebSearch,
+    })
     const sessionId = Date.now().toString()
 
     return {

@@ -51,6 +51,8 @@ export async function POST(req: Request, context: RouteContext) {
       {
         action: body.action,
         content: body.content,
+        enableThinking: body.enableThinking === true,
+        enableWebSearch: body.enableWebSearch === true,
       },
       { abortSignal: req.signal }
     )

@@ -26,6 +26,8 @@ interface InterviewState {
   streamingMessageId: string | null
   streamingPhase: 'idle' | 'thinking' | 'answering'
   abortController: AbortController | null
+  enableThinking: boolean
+  enableWebSearch: boolean
   isCompleting: boolean
   isGeneratingReport: boolean
   loadInterviews: () => Promise<void>
@@ -35,6 +37,8 @@ interface InterviewState {
   submitInterviewAnswer: (id: string, content: string) => Promise<void>
   startInterviewStream: (id: string) => Promise<void>
   submitInterviewAnswerStream: (id: string, content: string) => Promise<void>
+  toggleThinking: (enabled: boolean) => void
+  toggleWebSearch: (enabled: boolean) => void
   abortStream: () => void
   completeInterview: (id: string) => Promise<InterviewData | null>
   generateInterviewReport: (id: string) => Promise<InterviewData | null>
@@ -51,6 +55,8 @@ const initialState = {
   streamingMessageId: null,
   streamingPhase: 'idle' as const,
   abortController: null,
+  enableThinking: false,
+  enableWebSearch: false,
   isCompleting: false,
   isGeneratingReport: false,
 }
@@ -184,6 +190,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
   startInterviewStream: async (id) => {
     const controller = new AbortController()
     const assistantMessage = createOptimisticMessage('assistant', '')
+    const { enableThinking, enableWebSearch } = useInterviewStore.getState()
 
     set((state) => ({
       currentInterview: appendMessage(state.currentInterview, assistantMessage),
@@ -208,7 +215,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       const response = await fetch(`/api/interviews/${id}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start' }),
+        body: JSON.stringify({ action: 'start', enableThinking, enableWebSearch }),
         signal: controller.signal,
       })
 
@@ -261,6 +268,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
     const controller = new AbortController()
     const userMessage = createOptimisticMessage('user', answer)
     const assistantMessage = createOptimisticMessage('assistant', '')
+    const { enableThinking, enableWebSearch } = useInterviewStore.getState()
 
     set((state) => ({
       currentInterview: appendMessage(appendMessage(state.currentInterview, userMessage), assistantMessage),
@@ -285,7 +293,7 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       const response = await fetch(`/api/interviews/${id}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'answer', content: answer }),
+        body: JSON.stringify({ action: 'answer', content: answer, enableThinking, enableWebSearch }),
         signal: controller.signal,
       })
 
@@ -329,6 +337,10 @@ export const useInterviewStore = create<InterviewState>((set) => ({
       set({ streamingMessageId: null, streamingPhase: 'idle', abortController: null })
     }
   },
+
+  toggleThinking: (enabled) => set({ enableThinking: enabled }),
+
+  toggleWebSearch: (enabled) => set({ enableWebSearch: enabled }),
 
   abortStream: () => {
     const controller = useInterviewStore.getState().abortController

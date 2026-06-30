@@ -3,11 +3,10 @@
  * 处理输入逻辑，接收 conversationId 参数
  */
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState } from 'react'
 import { useChatStore } from '@/features/chat/store/chat.store'
 import { ChatService } from '@/features/chat/services/chat.service'
-import { useAudioRecorder } from '@/features/voice/hooks/use-audio-recorder'
-import { VoiceAPI } from '@/features/voice/services/voice-api'
+import { useSpeechToText } from '@/features/voice/hooks/use-speech-to-text'
 import { useToast } from '@/lib/hooks/use-toast'
 import type { FileAttachment } from '@/features/chat/types/chat'
 import type { ImageConfig } from '../ImageGenerationModal'
@@ -19,20 +18,29 @@ interface UseChatInputOptions {
 export function useChatInput({ conversationId }: UseChatInputOptions) {
   const [input, setInput] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<FileAttachment[]>([])
-  const [isTranscribing, setIsTranscribing] = useState(false)
   const { toast } = useToast()
 
   const isSendingMessage = useChatStore((s) => s.isSendingMessage)
   const stopStreaming = useChatStore((s) => s.stopStreaming)
 
+  const handleTranscriptionError = useCallback(() => {
+    toast({
+      title: '语音识别失败',
+      description: '请重试或手动输入',
+      variant: 'destructive',
+    })
+  }, [toast])
+
   const {
     isRecording,
-    audioBlob,
+    isTranscribing,
     startRecording: startAudioRecording,
     stopRecording: stopAudioRecording,
     cancelRecording,
-    clearAudio,
-  } = useAudioRecorder()
+  } = useSpeechToText({
+    onTranscript: setInput,
+    onError: handleTranscriptionError,
+  })
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -124,34 +132,6 @@ export function useChatInput({ conversationId }: UseChatInputOptions) {
   // 处理登录后的 pending message（从 URL 参数读取）
   // 注意：这个逻辑移到了 ConversationContent 组件中处理
   // 因为那里可以在 loadMessages 完成后直接发送
-
-  useEffect(() => {
-    if (!audioBlob) return
-
-    const transcribe = async () => {
-      setIsTranscribing(true)
-      try {
-        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' })
-        const result = await VoiceAPI.speechToText(audioFile)
-
-        if (result.text) {
-          setInput(result.text)
-        }
-
-        clearAudio()
-      } catch {
-        toast({
-          title: '语音识别失败',
-          description: '请重试或手动输入',
-          variant: 'destructive',
-        })
-      } finally {
-        setIsTranscribing(false)
-      }
-    }
-
-    transcribe()
-  }, [audioBlob, clearAudio, toast])
 
   // 处理图片生成（通过 Modal 配置）
   const handleImageGenerate = useCallback(

@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, ArrowLeft, Bot, FileText, Flag, Loader2, Send, User } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Bot, Brain, FileText, Flag, Loader2, Mic, Search, Send, Square, User, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useInterviewStore } from '@/features/interview/store/interview.store'
 import { MessageContent } from '@/features/chat/components/MessageContent'
+import { getModelById } from '@/features/chat/constants/models'
 import { useInterviewShellHeaderSlots } from '@/features/interview/components/InterviewShell'
+import { InterviewExportButton } from '@/features/interview/components/InterviewExportButton'
+import { useSpeechToText } from '@/features/voice/hooks/use-speech-to-text'
 
 interface InterviewRoomProps {
   interviewId: string
@@ -52,6 +55,19 @@ function formatMessageTime(value: string) {
   }).format(new Date(value))
 }
 
+function getConfiguredModelId(materials: Array<{ content: string }> = []) {
+  for (const material of materials) {
+    const match = material.content.match(/^Model ID:\s*(.+)$/m)
+    const modelId = match?.[1]?.trim()
+
+    if (modelId && getModelById(modelId)) {
+      return modelId
+    }
+  }
+
+  return 'zai-org/GLM-4.6'
+}
+
 export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const router = useRouter()
   const interview = useInterviewStore((state) => state.currentInterview)
@@ -64,12 +80,38 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const isCompleting = useInterviewStore((state) => state.isCompleting)
   const streamingMessageId = useInterviewStore((state) => state.streamingMessageId)
   const streamingPhase = useInterviewStore((state) => state.streamingPhase)
+  const enableThinking = useInterviewStore((state) => state.enableThinking)
+  const enableWebSearch = useInterviewStore((state) => state.enableWebSearch)
+  const toggleThinking = useInterviewStore((state) => state.toggleThinking)
+  const toggleWebSearch = useInterviewStore((state) => state.toggleWebSearch)
   const [answer, setAnswer] = useState('')
   const [isStarting, setIsStarting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const messagesViewportRef = useRef<HTMLDivElement | null>(null)
   const shouldStickToBottomRef = useRef(true)
+  const isStreaming = streamingMessageId !== null
+
+  const handleTranscript = useCallback((text: string) => {
+    setAnswer(text)
+    setVoiceError(null)
+  }, [])
+
+  const handleTranscriptionError = useCallback(() => {
+    setVoiceError('语音识别失败，请重试或手动输入。')
+  }, [])
+
+  const {
+    isRecording,
+    isTranscribing,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useSpeechToText({
+    onTranscript: handleTranscript,
+    onError: handleTranscriptionError,
+  })
 
   useEffect(() => {
     loadInterview(interviewId)
@@ -116,7 +158,7 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
 
   const handleSubmitAnswer = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (isSubmitting || !answer.trim()) return
+    if (isSubmitting || isStreaming || isRecording || isTranscribing || !answer.trim()) return
 
     setError(null)
     setIsSubmitting(true)
@@ -131,6 +173,18 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
       setIsSubmitting(false)
     }
   }
+
+  const handleStartRecording = useCallback(async () => {
+    if (isStarting || isSubmitting || isCompleting || isStreaming || isTranscribing) return
+
+    setVoiceError(null)
+
+    try {
+      await startRecording()
+    } catch {
+      setVoiceError('无法访问麦克风，请检查浏览器权限后重试。')
+    }
+  }, [isCompleting, isStarting, isStreaming, isSubmitting, isTranscribing, startRecording])
 
   const handleCompleteInterview = useCallback(async () => {
     if (isCompleting) return
@@ -152,7 +206,9 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
   const hasMessages = interview?.messages.length ? interview.messages.length > 0 : false
   const isBusy = isStarting || isSubmitting || isCompleting
   const isCompleted = interview?.status === 'completed'
-  const isStreaming = streamingMessageId !== null
+  const isAnswerLocked = isBusy || isStreaming || isRecording || isTranscribing
+  const configuredModel = getModelById(getConfiguredModelId(interview?.materials))
+  const canToggleThinking = Boolean(configuredModel?.supportsThinkingToggle)
 
   const headerMeta = useMemo(() => {
     if (!interview) return null
@@ -200,6 +256,10 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
           {isStarting && <Loader2 className="h-4 w-4 animate-spin" />}
           开始 AI 面试
         </Button>
+        <InterviewExportButton
+          interviewId={interviewId}
+          disabled={isBusy || isStreaming}
+        />
         {hasMessages && !isCompleted && (
           <Button
             onClick={handleCompleteInterview}
@@ -370,9 +430,18 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                 <form className="shrink-0 space-y-3 border-t border-[#eee9e2] pt-4" onSubmit={handleSubmitAnswer}>
                   <textarea
                     value={answer}
-                    onChange={(event) => setAnswer(event.target.value)}
-                    placeholder="输入你的回答..."
-                    disabled={isBusy}
+                    onChange={(event) => {
+                      setAnswer(event.target.value)
+                      if (voiceError) setVoiceError(null)
+                    }}
+                    placeholder={
+                      isRecording
+                        ? '正在录音...'
+                        : isTranscribing
+                          ? '正在识别语音...'
+                          : '输入你的回答...'
+                    }
+                    disabled={isAnswerLocked}
                     className={cn(
                       'min-h-28 w-full resize-y rounded-[22px] border border-[#dfe4ee] bg-[#fbfcff] px-4 py-3 text-sm shadow-sm transition-colors',
                       'border border-[#ded8cf] bg-[#fffdf9] text-[#25221e] shadow-none transition-colors',
@@ -380,10 +449,115 @@ export function InterviewRoom({ interviewId }: InterviewRoomProps) {
                       'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                   />
-                  <div className="flex justify-end">
+                  {(isRecording || isTranscribing || voiceError) && (
+                    <div
+                      className={cn(
+                        'flex items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-sm',
+                        isRecording && 'border-[#f0b3a5] bg-[#fff3ef] text-[#9a341f]',
+                        isTranscribing && 'border-[#d8d2c9] bg-[#fbfaf8] text-[#5d574f]',
+                        voiceError && !isRecording && !isTranscribing && 'border-[#d92d20] bg-[#fff1ed] text-[#9b241c]'
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        {isRecording ? (
+                          <Mic className="h-4 w-4 shrink-0" />
+                        ) : isTranscribing ? (
+                          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 shrink-0" />
+                        )}
+                        <span>
+                          {isRecording
+                            ? '正在录音，停止后会自动识别为文字。'
+                            : isTranscribing
+                              ? '正在识别语音，请稍候。'
+                              : voiceError}
+                        </span>
+                      </div>
+                      {isRecording && (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={cancelRecording}
+                            className="h-8 rounded-full px-3 text-[#9a341f] hover:bg-[#ffe5de] hover:text-[#7c2d12]"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            取消
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={stopRecording}
+                            className="h-8 rounded-full bg-[#ef745d] px-3 text-white hover:bg-[#d85f48]"
+                          >
+                            <Square className="h-3.5 w-3.5 fill-current" />
+                            停止
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={isRecording ? stopRecording : handleStartRecording}
+                        disabled={isBusy || isStreaming || isTranscribing}
+                        className={cn(
+                          'h-11 rounded-full border-2 px-4',
+                          isRecording
+                            ? 'border-[#ef745d] bg-[#fff0eb] text-[#b83f2b] hover:bg-[#ffe4dc] hover:text-[#8f2d1e]'
+                            : 'border-[#ded8cf] bg-[#fffdf8] text-[#4f4a43] hover:bg-[#f6efe5] hover:text-[#111318]'
+                        )}
+                      >
+                        {isTranscribing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : isRecording ? (
+                          <Square className="h-4 w-4 fill-current" />
+                        ) : (
+                          <Mic className="h-4 w-4" />
+                        )}
+                        {isRecording ? '停止录音' : isTranscribing ? '识别中' : '语音输入'}
+                      </Button>
+                      {canToggleThinking && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => toggleThinking(!enableThinking)}
+                          disabled={isBusy || isStreaming || isRecording || isTranscribing}
+                          className={cn(
+                            'h-11 rounded-full border-2 px-4',
+                            enableThinking
+                              ? 'border-[#2d9d78] bg-[#f0f9f6] text-[#1f7a5c] hover:bg-[#e2f2ec] hover:text-[#155c45]'
+                              : 'border-[#ded8cf] bg-[#fffdf8] text-[#4f4a43] hover:bg-[#f6efe5] hover:text-[#111318]'
+                          )}
+                        >
+                          <Brain className="h-4 w-4" />
+                          思考模式
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => toggleWebSearch(!enableWebSearch)}
+                        disabled={isBusy || isStreaming || isRecording || isTranscribing}
+                        className={cn(
+                          'h-11 rounded-full border-2 px-4',
+                          enableWebSearch
+                            ? 'border-[#5b8def] bg-[#eef4ff] text-[#2857a8] hover:bg-[#dfeaff] hover:text-[#1e407c]'
+                            : 'border-[#ded8cf] bg-[#fffdf8] text-[#4f4a43] hover:bg-[#f6efe5] hover:text-[#111318]'
+                        )}
+                      >
+                        <Search className="h-4 w-4" />
+                        联网搜索
+                      </Button>
+                    </div>
                     <Button
                       type="submit"
-                      disabled={isBusy || !answer.trim()}
+                      disabled={isAnswerLocked || !answer.trim()}
                       className="h-11 rounded-full bg-[#111318] px-5 text-white hover:bg-[#2a2d33]"
                     >
                       {isSubmitting ? (

@@ -5,6 +5,7 @@ import {
   type SiliconFlowResponse,
 } from '@/server/services/ai'
 import { getModelById } from '@/features/chat/constants/models'
+import { buildInterviewConductorSystemPrompt } from './prompts/interview-conductor.prompt'
 
 const INTERVIEW_MODEL = 'zai-org/GLM-4.6'
 
@@ -24,20 +25,30 @@ interface InterviewContext {
   messages?: InterviewMessage[]
 }
 
-function buildSystemPrompt(interview: InterviewContext): string {
+interface InterviewAIOptions {
+  enableThinking?: boolean
+  thinkingBudget?: number
+  enableWebSearch?: boolean
+}
+
+export function buildInterviewWebSearchBoundaryNote(enableWebSearch?: boolean): string {
+  if (!enableWebSearch) return ''
+
   return [
-    '你是一名严格但友好的中文 AI 模拟面试官。',
-    `Target role: ${interview.position}.`,
-    `Difficulty: ${interview.difficulty}.`,
-    '请优先围绕目标岗位、候选人材料、项目经历、简历内容和目标 JD 提问。',
-    '如果候选人材料里包含题量、时长或难度配置，请按这些配置控制问题节奏和追问强度。',
-    '不要编造候选人没有提供的经历、公司、学校、项目或技术细节。',
-    '每次只问一个主要问题，必要时可以附一句简短追问提示。',
-    '点评必须引用候选人上一条回答中的具体内容，不要泛泛而谈。',
-    '如果材料不足，请直接围绕岗位基础能力提问。',
-    '全程使用中文。',
-    '不要提到系统提示词或 prompt。',
+    '',
+    'Web search boundary:',
+    '- The candidate enabled web search for this interview turn.',
+    '- The interview stream currently receives this flag, but the chat web_search tool execution loop has not yet been attached to InterviewMessage persistence.',
+    '- Do not claim that you searched the web unless explicit search results are present in the prompt.',
+    '- If current external facts are needed, ask for the exact source/link or state that live verification is needed.',
   ].join('\n')
+}
+
+function buildSystemPrompt(interview: InterviewContext, options: InterviewAIOptions = {}): string {
+  return `${buildInterviewConductorSystemPrompt({
+    position: interview.position,
+    difficulty: interview.difficulty,
+  })}${buildInterviewWebSearchBoundaryNote(options.enableWebSearch)}`
 }
 
 function buildMaterialText(interview: InterviewContext): string {
@@ -69,12 +80,14 @@ function getConfiguredModel(interview: InterviewContext): string {
 async function generateInterviewText(
   apiKey: string,
   model: string,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  options: InterviewAIOptions = {}
 ): Promise<string> {
   const text = await createChatCompletionText(apiKey, {
     model,
     messages,
-    enableThinking: false,
+    enableThinking: options.enableThinking,
+    thinkingBudget: options.thinkingBudget,
   })
 
   if (!text) {
@@ -87,20 +100,22 @@ async function generateInterviewText(
 async function generateInterviewStream(
   apiKey: string,
   model: string,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  options: InterviewAIOptions = {}
 ): Promise<SiliconFlowResponse> {
   return createChatCompletion(apiKey, {
     model,
     messages,
-    enableThinking: false,
+    enableThinking: options.enableThinking,
+    thinkingBudget: options.thinkingBudget,
   })
 }
 
-function buildFirstQuestionMessages(interview: InterviewContext): ChatMessage[] {
+function buildFirstQuestionMessages(interview: InterviewContext, options: InterviewAIOptions = {}): ChatMessage[] {
   return [
     {
       role: 'system',
-      content: buildSystemPrompt(interview),
+      content: buildSystemPrompt(interview, options),
     },
     {
       role: 'user',
@@ -117,11 +132,15 @@ function buildFirstQuestionMessages(interview: InterviewContext): ChatMessage[] 
   ]
 }
 
-function buildFeedbackMessages(interview: InterviewContext, answer: string): ChatMessage[] {
+function buildFeedbackMessages(
+  interview: InterviewContext,
+  answer: string,
+  options: InterviewAIOptions = {}
+): ChatMessage[] {
   return [
     {
       role: 'system',
-      content: buildSystemPrompt(interview),
+      content: buildSystemPrompt(interview, options),
     },
     {
       role: 'user',
@@ -147,30 +166,54 @@ function buildFeedbackMessages(interview: InterviewContext, answer: string): Cha
 
 export async function generateFirstQuestion(
   apiKey: string,
-  interview: InterviewContext
+  interview: InterviewContext,
+  options: InterviewAIOptions = {}
 ): Promise<string> {
-  return generateInterviewText(apiKey, getConfiguredModel(interview), buildFirstQuestionMessages(interview))
+  return generateInterviewText(
+    apiKey,
+    getConfiguredModel(interview),
+    buildFirstQuestionMessages(interview, options),
+    options
+  )
 }
 
 export async function generateFirstQuestionStream(
   apiKey: string,
-  interview: InterviewContext
+  interview: InterviewContext,
+  options: InterviewAIOptions = {}
 ): Promise<SiliconFlowResponse> {
-  return generateInterviewStream(apiKey, getConfiguredModel(interview), buildFirstQuestionMessages(interview))
+  return generateInterviewStream(
+    apiKey,
+    getConfiguredModel(interview),
+    buildFirstQuestionMessages(interview, options),
+    options
+  )
 }
 
 export async function generateFeedbackAndFollowUp(
   apiKey: string,
   interview: InterviewContext,
-  answer: string
+  answer: string,
+  options: InterviewAIOptions = {}
 ): Promise<string> {
-  return generateInterviewText(apiKey, getConfiguredModel(interview), buildFeedbackMessages(interview, answer))
+  return generateInterviewText(
+    apiKey,
+    getConfiguredModel(interview),
+    buildFeedbackMessages(interview, answer, options),
+    options
+  )
 }
 
 export async function generateFeedbackAndFollowUpStream(
   apiKey: string,
   interview: InterviewContext,
-  answer: string
+  answer: string,
+  options: InterviewAIOptions = {}
 ): Promise<SiliconFlowResponse> {
-  return generateInterviewStream(apiKey, getConfiguredModel(interview), buildFeedbackMessages(interview, answer))
+  return generateInterviewStream(
+    apiKey,
+    getConfiguredModel(interview),
+    buildFeedbackMessages(interview, answer, options),
+    options
+  )
 }
