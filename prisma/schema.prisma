@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum InterviewState {
+  CREATED
+  GREETING
+  QUESTIONING
+  CLOSING
+  REPORTING
+  FINISHED
+}
+
+enum MessageRole {
+  INTERVIEWER
+  CANDIDATE
+}
+
+enum MessageKind {
+  GREETING
+  QUESTION
+  FOLLOW_UP
+  ANSWER
+  CLOSING
+}
+
+model User {
+  id           String      @id @default(cuid())
+  username     String      @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime    @default(now())
+  interviews   Interview[]
+
+  @@map("users")
+}
+
+model Interview {
+  id                   String         @id @default(cuid())
+  userId               String
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeText           String
+  candidateName        String
+  targetRole           String
+  techStack            String[]
+  questionCount        Int
+  state                InterviewState @default(CREATED)
+  currentQuestionIndex Int            @default(0)
+  followUpDepth        Int            @default(0)
+  createdAt            DateTime       @default(now())
+  finishedAt           DateTime?
+  outlineItems         OutlineItem[]
+  messages             Message[]
+  scores               Score[]
+  report               Report?
+
+  @@map("interviews")
+}
+
+model OutlineItem {
+  id                 String    @id @default(cuid())
+  interviewId        String
+  interview          Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  orderIndex         Int
+  topic              String
+  question           String
+  difficulty         String
+  relatedResumePoint String
+
+  @@unique([interviewId, orderIndex])
+  @@map("outline_items")
+}
+
+model Message {
+  id            String      @id @default(cuid())
+  interviewId   String
+  interview     Interview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  role          MessageRole
+  kind          MessageKind
+  questionIndex Int
+  followUpDepth Int         @default(0)
+  content       String
+  createdAt     DateTime    @default(now())
+  score         Score?
+
+  @@index([interviewId, createdAt])
+  @@map("messages")
+}
+
+model Score {
+  id            String    @id @default(cuid())
+  interviewId   String
+  interview     Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  messageId     String    @unique
+  message       Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  score         Int
+  comment       String
+  needsFollowUp Boolean   @default(false)
+  followUpFocus String    @default("")
+  coveredPoints String[]
+  createdAt     DateTime  @default(now())
+
+  @@map("scores")
+}
+
+model Report {
+  id           String    @id @default(cuid())
+  interviewId  String    @unique
+  interview    Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  overallScore Int
+  summary      String
+  strengths    Json
+  weaknesses   Json
+  suggestions  Json
+  perQuestion  Json
+  createdAt    DateTime  @default(now())
+
+  @@map("reports")
+}

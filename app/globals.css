@@ -1,0 +1,295 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* 项目语义 token */
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-divider: var(--divider);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+
+  /* 圆角系统：主面板 12px，控件 8px */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
+  --radius-2xl: 12px;
+
+  --font-sans: var(--font-noto-sans-sc), system-ui, sans-serif;
+  --font-serif: var(--font-noto-serif-sc), 'Songti SC', serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --color-accent-hover: var(--accent-hover);
+}
+
+/* ——— 暖纸档案视觉系统：全站唯一主题（由登录页确认后提取） ———
+   html 恒定带 .light 类；双类选择器压过 shadcn/tailwind.css 内置的
+   :root:not(.light) / :root:not(.dark) 主题块，保证单一亮色档案主题。
+   .theme-paper 保留为同值别名（登录页已引用）。 */
+:root,
+:root.light,
+.theme-paper {
+  color-scheme: light;
+
+  --canvas: #f3efe6;
+  --surface: #fbf9f4;
+  --surface-subtle: #ece7da;
+  --ink: #181816;
+  --ink-muted: #69665f;
+  --divider: #d8d2c7;
+  --accent-strong: #d97757;
+  --accent-hover: #c96245;
+  --accent-soft: #f6e2d8;
+  --success: #3f6c45;
+  --warning: #a86520;
+  --error: #b23a2b;
+
+  /* shadcn 变量映射到本系统 */
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent-strong);
+  --primary-foreground: #fff9f5;
+  --secondary: var(--surface-subtle);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-subtle);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--accent-soft);
+  --accent-foreground: var(--accent-strong);
+  --destructive: var(--error);
+  --border: var(--divider);
+  --input: var(--divider);
+  --ring: var(--accent-strong);
+  --radius: 12px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ——— 登录页首屏进入编排（总时长 ≤ 900ms，只动 transform/opacity） ——— */
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes lp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes lp-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.lp-seq {
+  opacity: 0;
+  animation: lp-rise 0.35s ease-out forwards;
+}
+.lp-pop {
+  opacity: 0;
+  animation: lp-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.lp-draw {
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: lp-draw 0.3s ease-out forwards;
+}
+.lp-d0 {
+  animation-delay: 0s;
+}
+.lp-d1 {
+  animation-delay: 0.12s;
+}
+.lp-d2 {
+  animation-delay: 0.22s;
+}
+.lp-d3 {
+  animation-delay: 0.34s;
+}
+.lp-d4 {
+  animation-delay: 0.46s;
+}
+.lp-d5 {
+  animation-delay: 0.56s;
+}
+
+/* 语音波形 */
+@keyframes lp-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.lp-wave-bar {
+  animation: lp-wave 0.9s ease-in-out infinite;
+  transform-origin: center;
+}
+.lp-wave-bar:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.lp-wave-bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.lp-wave-bar:nth-child(4) {
+  animation-delay: 0.36s;
+}
+.lp-wave-bar:nth-child(5) {
+  animation-delay: 0.48s;
+}
+
+/* 当前问题节点呼吸光晕 */
+@keyframes lp-halo {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+.lp-halo {
+  animation: lp-halo 2s ease-out infinite;
+}
+
+/* ——— 动效：只改 transform / opacity ——— */
+
+/* 当前 Rail 节点在 AI 生成或播报时的呼吸 */
+@keyframes rail-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+}
+.rail-breathe {
+  animation: rail-breathe 1.6s ease-in-out infinite;
+}
+
+/* 流式光标 */
+@keyframes stream-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.stream-caret {
+  animation: stream-caret 0.9s step-end infinite;
+}
+
+/* 消息进入 */
+@keyframes entry-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.entry-rise {
+  animation: entry-rise 0.25s ease-out both;
+}
+
+/* 录音电平指示 */
+@keyframes rec-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.rec-bar {
+  animation: rec-pulse 0.8s ease-in-out infinite;
+  transform-origin: center;
+}
+.rec-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.rec-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-breathe,
+  .stream-caret,
+  .entry-rise,
+  .rec-bar,
+  .lp-wave-bar,
+  .lp-halo {
+    animation: none;
+  }
+  .lp-seq,
+  .lp-pop,
+  .lp-draw {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
