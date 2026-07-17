@@ -7,7 +7,7 @@
 
 技术栈：`Next.js` · `TypeScript` · `Function Calling` · `FSM` · `SSE` · `Qwen3-TTS` · `Web Speech` · `PostgreSQL` · `Prisma`
 
-![Ace-it 面试房间](docs/screenshots/03-interview-room.webp)
+![Ace-it 落地页：你的简历，就是这场面试的出题人](docs/screenshots/00-landing-hero.webp)
 
 **快速导航**：
 [产品概览](#产品概览) ·
@@ -85,9 +85,9 @@ LLM 负责生成和评估内容，服务端 FSM 负责题目游标、追问上�
 
 ## 页面截图
 
-| 登录 | 创建面试 |
+| 面试房间 | 创建面试 |
 | --- | --- |
-| ![登录页：简历到追问的可视化叙事](docs/screenshots/01-login.webp) | ![创建面试：粘贴简历并选择题量](docs/screenshots/02-create-interview.webp) |
+| ![面试房间：流式提问、语音播报与大纲进度](docs/screenshots/03-interview-room.webp) | ![创建面试：粘贴简历并选择题量](docs/screenshots/02-create-interview.webp) |
 
 | 面试报告 | 历史面试 |
 | --- | --- |

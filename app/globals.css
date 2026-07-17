@@ -165,47 +165,36 @@
   animation-delay: 0.56s;
 }
 
-/* 语音波形 */
-@keyframes lp-wave {
-  0%,
-  100% {
-    transform: scaleY(0.35);
-  }
-  50% {
-    transform: scaleY(1);
-  }
+/* 纸张质感：固定伪元素、不参与滚动、不拦截事件，透明度约 1.5% */
+.lp-grain {
+  position: relative;
+  isolation: isolate;
 }
-.lp-wave-bar {
-  animation: lp-wave 0.9s ease-in-out infinite;
-  transform-origin: center;
-}
-.lp-wave-bar:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.lp-wave-bar:nth-child(3) {
-  animation-delay: 0.24s;
-}
-.lp-wave-bar:nth-child(4) {
-  animation-delay: 0.36s;
-}
-.lp-wave-bar:nth-child(5) {
-  animation-delay: 0.48s;
+.lp-grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.015;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* 当前问题节点呼吸光晕 */
+/* 当前问题节点入场脉冲：一次性播放，完成后页面恢复安静。
+   持续动画只保留给真实状态（面试间内的流式光标、TTS 波形、录音电平）。 */
 @keyframes lp-halo {
-  0%,
-  100% {
+  from {
     transform: scale(1);
-    opacity: 0.5;
+    opacity: 0.55;
   }
-  50% {
-    transform: scale(1.5);
+  to {
+    transform: scale(1.9);
     opacity: 0;
   }
 }
 .lp-halo {
-  animation: lp-halo 2s ease-out infinite;
+  opacity: 0;
+  animation: lp-halo 0.8s ease-out 0.5s 1 forwards;
 }
 
 /* ——— 动效：只改 transform / opacity ——— */
@@ -276,20 +265,144 @@
   animation-delay: 0.3s;
 }
 
+/* ═══════ 营销落地页（ld-）═══════
+   参考 Stillwater 的滚动节奏与电影感构图，全部动效只使用 transform/opacity。 */
+
+/* 进入视口淡入（由 IntersectionObserver 添加 .is-in，观察后即解绑） */
+.ld-fade {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+.ld-fade.is-in {
+  opacity: 1;
+  transform: none;
+}
+.ld-fade.ld-d1 {
+  transition-delay: 0.12s;
+}
+.ld-fade.ld-d2 {
+  transition-delay: 0.24s;
+}
+.ld-fade.ld-d3 {
+  transition-delay: 0.36s;
+}
+
+/* Hero Ken Burns：14s 交替、幅度 ≤1.04，离开视口由 JS 置为 paused */
+@keyframes ld-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.04) translate(-0.8%, -0.8%);
+  }
+}
+.ld-kenburns {
+  animation: ld-kenburns 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.ld-kenburns[data-paused='true'] {
+  animation-play-state: paused;
+}
+
+/* 逐字输出光标（表达 SSE 增量语义，仅在打字期间挂载） */
+@keyframes ld-caret {
+  50% {
+    opacity: 0;
+  }
+}
+.ld-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--accent-strong);
+  vertical-align: text-bottom;
+  margin-left: 1px;
+  animation: ld-caret 0.9s step-end infinite;
+}
+
+/* 状态指示器：页面上唯一允许的持续脉冲（表达真实叙事状态） */
+@keyframes ld-status-pulse {
+  0%,
+  100% {
+    transform: scale(0.75);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.ld-status-dot {
+  animation: ld-status-pulse 2.4s ease-in-out infinite;
+}
+
+/* 流程行展开：grid-rows 过渡实现平滑布局变化 */
+.ld-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ld-expand[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.ld-expand > div {
+  overflow: hidden;
+}
+
+/* 播放中的小型语音波形（仅真实播放时渲染） */
+@keyframes ld-wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.ld-wave-bar {
+  animation: ld-wave 0.9s ease-in-out infinite;
+  transform-origin: center;
+}
+.ld-wave-bar:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.ld-wave-bar:nth-child(3) {
+  animation-delay: 0.24s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rail-breathe,
   .stream-caret,
   .entry-rise,
   .rec-bar,
-  .lp-wave-bar,
-  .lp-halo {
+  .ld-kenburns,
+  .ld-status-dot,
+  .ld-wave-bar,
+  .ld-caret {
     animation: none;
   }
   .lp-seq,
   .lp-pop,
-  .lp-draw {
+  .lp-draw,
+  .lp-halo {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  /* 光晕在静态下不应残留 */
+  .lp-halo {
+    opacity: 0;
+  }
+  .ld-fade {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .ld-expand {
+    transition: none;
   }
 }

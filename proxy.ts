@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { COOKIE_NAME, verifySessionToken } from '@/lib/auth/token'
 
-const PUBLIC_PATHS = ['/login']
+/* /api/tts-preview 只合成固定演示文案、不接受用户输入，对未登录访客开放 */
+const PUBLIC_PATHS = ['/login', '/api/tts-preview']
 
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

@@ -1,13 +1,17 @@
 import { Check } from '@phosphor-icons/react/dist/ssr'
 
-/** 语音波形（纯装饰） */
+/**
+ * 语音波形（静态示意）。
+ * 登录封面上没有真实的录音状态，持续动画只保留给面试间内的
+ * 真实语音/TTS/流式状态，这里用静态条形仅表达"此处支持语音作答"。
+ */
 function Waveform({ className = '' }: { className?: string }) {
   return (
     <span className={`flex h-4 items-center gap-[3px] ${className}`} aria-hidden="true">
       {[10, 16, 12, 16, 8].map((h, i) => (
         <span
           key={i}
-          className="lp-wave-bar w-[3px] rounded-full bg-accent-strong/70"
+          className="w-[3px] rounded-full bg-accent-strong/70"
           style={{ height: `${h}px` }}
         />
       ))}
@@ -121,7 +125,7 @@ export function InterviewThread() {
                   </p>
                   <div className="lp-seq lp-d5 flex items-center gap-2.5 rounded-md bg-accent-soft/60 px-3 py-2">
                     <Waveform />
-                    <span className="font-mono text-[11px] text-ink-muted">候选人语音作答中</span>
+                    <span className="font-mono text-[11px] text-ink-muted">支持语音作答</span>
                   </div>
                 </div>
               </div>

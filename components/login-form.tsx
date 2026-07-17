@@ -132,7 +132,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent-strong text-[15px] font-semibold text-primary-foreground shadow-[0_2px_8px_-2px_rgba(217,119,87,0.5)] transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_4px_14px_-4px_rgba(217,119,87,0.6)] focus-visible:ring-[3px] focus-visible:ring-accent-strong/30 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+        className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-accent-strong text-[15px] font-semibold text-primary-foreground transition-colors duration-150 hover:bg-accent-hover focus-visible:ring-[3px] focus-visible:ring-accent-strong/30 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading && <CircleNotch className="size-4 animate-spin" aria-hidden="true" />}
         {loading ? '登录中…' : '进入工作台'}
